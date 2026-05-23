@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard ACS - Produção</title>
+<style>
+:root{
+  --blue:#075985; --blue-2:#0ea5e9; --green:#047857; --amber:#b45309;
+  --red:#b91c1c; --ink:#0f172a; --muted:#64748b; --line:#dbe3ea;
+  --bg:#edf6f8; --card:#ffffff; --soft:#f8fafc; --radius:8px;
+  --shadow:0 12px 30px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#e0f2fe 0,#edf6f8 230px,#edf6f8 100%);color:var(--ink);font-family:Arial,Helvetica,sans-serif;line-height:1.35}
+.topbar{background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);padding:16px 24px;display:flex;gap:16px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;backdrop-filter:blur(10px)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-icon{width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--green));color:#fff;display:grid;place-items:center;font-weight:800}
+.brand h1{font-size:1.15rem;margin:0;color:var(--blue)}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:.82rem}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.secondary{background:#e0f2fe;color:#075985}
+.file-btn{position:relative;overflow:hidden}
+.file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.wrap{max-width:1240px;margin:0 auto;padding:22px}
+.notice{background:#fff;border:1px solid var(--line);border-left:5px solid var(--blue-2);border-radius:8px;padding:16px 18px;color:var(--muted);box-shadow:var(--shadow)}
+.grid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:18px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.panel-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.panel-head h2{font-size:.95rem;margin:0;color:var(--blue);text-transform:uppercase;letter-spacing:.06em}
+.acs-strip{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px}
+.acs-strip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.acs-strip-head h2{font-size:.85rem;margin:0;color:var(--blue);text-transform:uppercase;letter-spacing:.08em}
+.acs-list{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:thin}
+.acs-item{border:1px solid var(--line);background:#fff;border-radius:999px;padding:10px 16px;text-align:center;cursor:pointer;color:var(--ink);font-weight:700;white-space:nowrap;min-width:max-content;transition:background .2s,border-color .2s,box-shadow .2s,transform .2s}
+.acs-item:hover{background:#f1f5f9;transform:translateY(-1px)}
+.acs-item.active{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 8px 18px rgba(7,89,133,.22)}
+.acs-total{font-weight:800}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:16px}
+.card{border:1px solid var(--line);border-radius:8px;padding:14px;background:var(--soft)}
+.card small{display:block;color:var(--muted);font-weight:700;text-transform:uppercase;font-size:.68rem;letter-spacing:.04em}
+.card strong{display:block;font-size:1.8rem;margin-top:4px;color:var(--blue)}
+.card.green strong{color:var(--green)}
+.card.amber strong{color:var(--amber)}
+.card.red strong{color:var(--red)}
+.sections{padding:0 16px 16px;display:grid;gap:16px}
+.section-title{font-size:.9rem;margin:6px 0 8px;color:var(--ink);font-weight:800}
+.detail-hero{padding:20px 16px 0}
+.detail-hero h3{margin:0;color:var(--blue);font-size:1.35rem}
+.detail-hero p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
+tbody tr:hover td{background:#f8fafc}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+th,td{padding:9px 10px;border-bottom:1px solid #edf2f7;text-align:left;font-size:.88rem}
+th{background:#eaf6fd;color:#075985;text-transform:uppercase;font-size:.72rem;letter-spacing:.05em}
+tr:last-child td{border-bottom:0}
+td.num{text-align:right;font-weight:800;color:var(--blue)}
+.nf{color:var(--muted);font-style:italic}
+.summary-table td:first-child{font-weight:700}
+.bar-wrap{height:9px;background:#e2e8f0;border-radius:999px;overflow:hidden}
+.bar{height:100%;background:var(--blue-2);border-radius:999px}
+.empty{padding:50px;text-align:center;color:var(--muted)}
+.print-title{display:none}
+.print-all{display:none}
+.screen-only{display:block}
+@media (max-width:900px){
+  .grid{grid-template-columns:1fr}
+  .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .topbar{position:static;align-items:flex-start;flex-direction:column}
+}
+@media (max-width:560px){.cards{grid-template-columns:1fr}.wrap{padding:14px}}
+@media print{
+  body{background:#fff}
+  .topbar,.notice,.acs-strip{display:none!important}
+  .wrap{max-width:none;padding:0}
+  .grid{display:block}
+  .panel{box-shadow:none;border:0}
+  .print-title{display:block;margin:0 0 12px;color:#075985}
+  .screen-only{display:none!important}
+  .print-all{display:block}
+  .print-acs{break-inside:avoid;page-break-inside:avoid;margin-bottom:18px}
+  .print-acs + .print-acs{page-break-before:always}
+  .cards{grid-template-columns:repeat(4,1fr);padding:0 0 10px}
+  .sections{padding:0}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">ACS</div>
+    <div>
+      <h1>Dashboard de Produção das ACS</h1>
+      <p id="subtitle">Carregue o CSV para visualizar a produção individual e geral.</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn secondary file-btn">Carregar CSV<input type="file" accept=".csv" onchange="loadCsvFile(this)"></button>
+    <button class="btn primary" onclick="window.print()">Baixar PDF</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="notice" id="notice">
+    Selecione o arquivo <strong>Relatorio_ACS.csv</strong>. Depois clique no nome da ACS para ver os requisitos individuais; o relatório geral fica ao final da tela.
+  </div>
+
+  <div id="app" class="grid" style="display:none">
+    <section class="acs-strip">
+      <div class="acs-strip-head"><h2>Filtrar por ACS</h2><span id="acsCount" class="nf">0</span></div>
+      <div class="acs-list" id="acsList"></div>
+    </section>
+
+    <section class="panel">
+      <div id="detail"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+const requiredItems = [
+  { key:'familias', label:'Famílias Cadastradas', section:'Área', match:['familias cadastradas'] },
+  { key:'gestantes', label:'Gestantes Cadastradas', section:'Gestantes', match:['cadastradas'] },
+  { key:'individuos', label:'Indivíduos Cadastrados', section:'Área', match:['quantidade de pessoas na area'] },
+  { key:'pn12', label:'Gestantes com PN iniciado até a 12ª semana', section:'Gestantes', match:['pn iniciado 1o tri','pn iniciado 1 tri'] },
+  { key:'has', label:'Hipertensos Cadastrados', section:'Crônicos', match:['hipertensos cadastrados'] },
+  { key:'altoRisco', label:'Gestantes de Alto-risco', section:'Gestantes', match:['gestantes de alto risco'] },
+  { key:'dm', label:'Diabéticos Cadastrados', section:'Crônicos', match:['diabeticos cadastrados'] },
+  { key:'criancas1', label:'Crianças < 01 Ano', section:'Crianças', match:['de 0 a 11 meses e 29 dias'] },
+  { key:'mulheres', label:'Mulheres de 25 a 64 anos', section:'Grupos Etários', match:['mulheres de 25 a 64 anos'] },
+  { key:'visitas', label:'VISITAS DOMICILIARES DO ACS', section:'Área', match:['visitas domiciliares do acs'] }
+];
+let state = { acs:[], rows:[], selected:0, period:'', date:'' };
+
+function normalizeText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/º/g, 'o')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseCSV(text) {
+  const sample = text.split(/\r?\n/).slice(0, 20).join('\n');
+  const comma = (sample.match(/,/g) || []).length;
+  const semicolon = (sample.match(/;/g) || []).length;
+  const sep = semicolon > comma ? ';' : ',';
+  return text.split(/\r?\n/).map(line => line.split(sep).map(cell => cell.trim()));
+}
+
+function toNumber(value) {
+  const n = parseInt(String(value || '').replace(/\D/g,''), 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+function loadCsvFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = event => {
+    buildState(parseCSV(event.target.result), file.name);
+    render();
+  };
+  reader.readAsText(file);
+}
+
+function buildState(rows, fileName) {
+  const headerIndex = rows.findIndex(r => normalizeText(r[0]) === 'acs' && r.length > 3);
+  if (headerIndex < 0) {
+    alert('Não encontrei a linha de cabeçalho ACS no CSV.');
+    return;
+  }
+  const header = rows[headerIndex];
+  const totalIndex = header.findIndex(c => normalizeText(c) === 'total');
+  const acs = header
+    .map((name, index) => ({ name: String(name || '').trim(), index }))
+    .filter(item => item.index > 1 && item.index !== totalIndex && item.name);
+
+  const dataRows = [];
+  let currentSection = '';
+  rows.forEach((row, index) => {
+    const first = String(row[0] || '').trim();
+    const second = String(row[1] || '').trim();
+    if (normalizeText(first) === 'acs') return;
+    if (first) currentSection = first;
+    if (!second) return;
+    dataRows.push({
+      line: index + 1,
+      section: currentSection,
+      label: second,
+      normLabel: normalizeText(second),
+      values: row,
+      totalIndex
+    });
+  });
+
+  const periodRow = rows.find(r => r.some(c => normalizeText(c).includes('abril de') || normalizeText(c).includes('maio de')));
+  const dateRow = rows.find(r => r.some(c => normalizeText(c) === 'data:'));
+  state = {
+    acs, rows:dataRows, selected:0,
+    period: periodRow ? periodRow.find(c => normalizeText(c).includes('de 202')) || '' : '',
+    date: dateRow ? dateRow[dateRow.findIndex(c => normalizeText(c) === 'data:') + 1] || '' : '',
+    fileName
+  };
+}
+
+function findMetric(item) {
+  return state.rows.find(row => item.match.some(m => row.normLabel.includes(normalizeText(m)))) || null;
+}
+
+function valueFor(item, acsIndex) {
+  const row = findMetric(item);
+  if (!row) return null;
+  return toNumber(row.values[acsIndex]);
+}
+
+function totalFor(item) {
+  const row = findMetric(item);
+  if (!row || row.totalIndex < 0) return null;
+  return toNumber(row.values[row.totalIndex]);
+}
+
+function itemByKey(key) {
+  return requiredItems.find(item => item.key === key);
+}
+
+function fmt(value) {
+  return value === null || value === undefined ? '<span class="nf">Não encontrado</span>' : value.toLocaleString('pt-BR');
+}
+
+function render() {
+  document.getElementById('app').style.display = 'grid';
+  document.getElementById('notice').style.display = 'none';
+  document.getElementById('subtitle').textContent = [state.fileName, state.period, state.date ? 'Gerado em ' + state.date : ''].filter(Boolean).join(' · ');
+  document.getElementById('acsCount').textContent = state.acs.length + ' ACS';
+  renderAcsList();
+  renderDetail();
+}
+
+function renderAcsList() {
+  const list = document.getElementById('acsList');
+  list.innerHTML = state.acs.map((acs, i) => `<button class="acs-item ${i === state.selected ? 'active' : ''}" onclick="selectAcs(${i})">${acs.name}</button>`).join('');
+}
+
+function selectAcs(index) {
+  state.selected = index;
+  renderAcsList();
+  renderDetail();
+}
+
+function renderCards(acs) {
+  const familias = itemByKey('familias');
+  const individuos = itemByKey('individuos');
+  const gestantes = itemByKey('gestantes');
+  const has = itemByKey('has');
+  const cards = [
+    {label:'Famílias', value:valueFor(familias, acs.index), cls:''},
+    {label:'Indivíduos', value:valueFor(individuos, acs.index), cls:'green'},
+    {label:'Gestantes', value:valueFor(gestantes, acs.index), cls:'amber'},
+    {label:'Hipertensos', value:valueFor(has, acs.index), cls:'red'}
+  ];
+  return `<div class="cards">${cards.map(c => `<div class="card ${c.cls}">
+    <small>${c.label}</small><strong>${fmt(c.value)}</strong>
+  </div>`).join('')}</div>`;
+}
+
+function renderRequirementTable(acs) {
+  return `<table>
+    <thead><tr><th>Requisito</th><th>Grupo</th><th>Valor</th></tr></thead>
+    <tbody>${requiredItems.map(item => {
+      const row = findMetric(item);
+      return `<tr>
+        <td>${item.label}</td>
+        <td>${row ? row.section : item.section}</td>
+        <td class="num">${fmt(valueFor(item, acs.index))}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function renderGeneralReport() {
+  const maxTotal = Math.max(...requiredItems.map(item => totalFor(item) || 0), 1);
+  return `<div>
+    <h3 class="section-title">Relatório Geral da Equipe</h3>
+    <table class="summary-table">
+      <thead><tr><th>Requisito</th><th>Total</th><th>Distribuição</th></tr></thead>
+      <tbody>${requiredItems.map(item => {
+        const total = totalFor(item);
+        const width = total === null ? 0 : Math.round((total / maxTotal) * 100);
+        return `<tr>
+          <td>${item.label}</td>
+          <td class="num">${fmt(total)}</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:${width}%"></div></div></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderAcsReport(acs, printMode) {
+  return `<div class="${printMode ? 'print-acs' : ''}">
+    <h1 class="print-title">Dashboard ACS - ${acs.name}</h1>
+    ${renderCards(acs)}
+    <div class="sections">
+      <div>
+        <h3 class="section-title">Requisitos da Ficha de Produção</h3>
+        ${renderRequirementTable(acs)}
+      </div>
+      ${printMode ? '' : renderGeneralReport()}
+    </div>
+  </div>`;
+}
+
+function renderAllAcsForPrint() {
+  return `<div class="print-all">
+    <h1 class="print-title">Dashboard ACS - Relatório Completo</h1>
+    ${state.acs.map(acs => renderAcsReport(acs, true)).join('')}
+    ${renderGeneralReport()}
+  </div>`;
+}
+
+function renderDetail() {
+  const acs = state.acs[state.selected];
+  if (!acs) {
+    document.getElementById('detail').innerHTML = '<div class="empty">Nenhuma ACS encontrada no CSV.</div>';
+    return;
+  }
+  document.getElementById('detail').innerHTML = `
+    <div class="screen-only">
+      <div class="detail-hero">
+        <h3>${acs.name}</h3>
+        <p>Produção individual filtrada. Use a barra superior para alternar entre ACS.</p>
+      </div>
+      ${renderAcsReport(acs, false)}
+    </div>
+    ${renderAllAcsForPrint()}`;
+}
+</script>
+</body>
+</html>
