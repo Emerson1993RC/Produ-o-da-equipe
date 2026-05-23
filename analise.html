@@ -145,6 +145,18 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--gray-100);color:var
         <label for="file-dentista"><span class="slot-icon">🦷</span>Odontologia<input type="file" id="file-dentista" accept=".csv" onchange="loadFile('dentista',this)"></label>
         <div class="slot-status" id="status-dentista">Nenhum arquivo</div>
       </div>
+      <div class="file-slot" id="slot-fisioterapia">
+        <label for="file-fisioterapia"><span class="slot-icon">🦵</span>Fisioterapia<input type="file" id="file-fisioterapia" accept=".csv" onchange="loadFile('fisioterapia',this)"></label>
+        <div class="slot-status" id="status-fisioterapia">Nenhum arquivo</div>
+      </div>
+      <div class="file-slot" id="slot-psicologia">
+        <label for="file-psicologia"><span class="slot-icon">🧠</span>Psicologia<input type="file" id="file-psicologia" accept=".csv" onchange="loadFile('psicologia',this)"></label>
+        <div class="slot-status" id="status-psicologia">Nenhum arquivo</div>
+      </div>
+      <div class="file-slot" id="slot-nutricionista">
+        <label for="file-nutricionista"><span class="slot-icon">🥗</span>Nutricionista<input type="file" id="file-nutricionista" accept=".csv" onchange="loadFile('nutricionista',this)"></label>
+        <div class="slot-status" id="status-nutricionista">Nenhum arquivo</div>
+      </div>
       <div class="file-slot" id="slot-vacinas">
         <label for="file-vacinas"><span class="slot-icon">💊</span>Vacinas<input type="file" id="file-vacinas" accept=".csv" onchange="loadFile('vacinas',this)"></label>
         <div class="slot-status" id="status-vacinas">Nenhum arquivo</div>
@@ -206,7 +218,11 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--gray-100);color:var
 
 <script>
 // ── STATE ──
-const csvData = { medico:null, enfermeiro:null, tecnico1:null, tecnico2:null, dentista:null, vacinas:null, vacinas2:null };
+const csvData = {
+  medico:null, enfermeiro:null, tecnico1:null, tecnico2:null, dentista:null,
+  fisioterapia:null, psicologia:null, nutricionista:null,
+  vacinas:null, vacinas2:null
+};
 const R = {}; // parsed rows keyed by type
 const loadedFiles = {};
 
@@ -270,9 +286,15 @@ function detectFileType(fileName, text, usedTypes) {
   if (content.includes('medico da estrategia')) return 'medico';
   if (content.includes('enfermeiro da estrategia')) return 'enfermeiro';
   if (content.includes('tecnico de enfermagem')) return pickTecnico();
+  if (content.includes('fisioterapeuta')) return 'fisioterapia';
+  if (content.includes('psicologo') || content.includes('psicologa')) return 'psicologia';
+  if (content.includes('nutricionista')) return 'nutricionista';
 
   if (name.includes('medico')) return 'medico';
   if (name.includes('dentista') || name.includes('odonto')) return 'dentista';
+  if (name.includes('fisio')) return 'fisioterapia';
+  if (name.includes('psico')) return 'psicologia';
+  if (name.includes('nutri')) return 'nutricionista';
   if (name.includes('vacina')) {
     return pickVacinas();
   }
@@ -499,11 +521,17 @@ function processar() {
   const cMed = sumConsultas(R.medico);
   const cEnf = sumConsultas(R.enfermeiro);
   const cDen = sumConsultas(R.dentista);
-  const cTotal = ns(cMed, cEnf, cDen);
+  const cFis = cellVal(R.fisioterapia, 23, 1);
+  const cPsi = cellVal(R.psicologia, 23, 1);
+  const cNut = cellVal(R.nutricionista, 23, 1);
+  const cTotal = ns(cMed, cEnf, cDen, cFis, cPsi, cNut);
   let t1 = thead(['Profissional','Detalhe','Qtd']);
   t1 += trow('Médico','Agendada + Agend. Prog. + No dia + Urgência', cMed, false, false);
   t1 += trow('Enfermeiro','Agendada + Agend. Prog. + No dia + Urgência', cEnf, false, false);
   t1 += trow('Odontologia','Agendada + No dia + Urgência', cDen, false, false);
+  t1 += trow('Fisioterapia','B23 – Registros identificados', cFis, false, false);
+  t1 += trow('Psicologia','B23 – Registros identificados', cPsi, false, false);
+  t1 += trow('Nutricionista','B23 – Registros identificados', cNut, false, false);
   t1 += trow('TOTAL','', cTotal, false, true);
   t1 += '</tbody>';
   document.getElementById('tabelaConsultas').innerHTML = t1;
