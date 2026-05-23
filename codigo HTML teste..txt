@@ -1,0 +1,687 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Produção Mensal - Croatá dos Martins (USF I)</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&family=Merriweather:wght@700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root {
+  --primary:#005B8E; --primary-dark:#003F63; --primary-light:#EBF5FC;
+  --accent:#00A86B; --accent-light:#E6F7F1;
+  --warn:#E07B00; --warn-light:#FFF3E0;
+  --danger:#C0392B;
+  --white:#FFF; --gray-50:#F8FAFC; --gray-100:#F1F5F9;
+  --gray-200:#E2E8F0; --gray-500:#64748B; --gray-700:#334155; --gray-900:#0F172A;
+  --radius:10px; --shadow:0 2px 12px rgba(0,91,142,.10); --shadow-lg:0 6px 30px rgba(0,91,142,.15);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Source Sans 3',sans-serif;background:var(--gray-100);color:var(--gray-900);min-height:100vh}
+
+/* HEADER */
+.site-header{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 60%,#0077B6 100%);color:#fff;padding:28px 40px 24px;display:flex;align-items:center;justify-content:center;gap:20px;box-shadow:0 4px 20px rgba(0,0,0,.25);position:relative;overflow:hidden}
+.site-header::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
+.header-icons{font-size:2.6rem;display:flex;gap:10px;z-index:1}
+.header-text{text-align:center;z-index:1}
+.header-text h1{font-family:'Merriweather',serif;font-size:1.9rem;letter-spacing:.5px;line-height:1.15}
+.header-text h2{font-size:1.15rem;font-weight:400;opacity:.88;margin-top:4px}
+.header-date{font-size:.82rem;opacity:.70;margin-top:6px;letter-spacing:.5px}
+
+/* CONTAINER */
+.container{max-width:1050px;margin:0 auto;padding:30px 20px}
+
+/* UPLOAD */
+.upload-section{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 32px;margin-bottom:28px}
+.upload-section h3{font-size:1rem;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.file-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px}
+.file-slot{border:2px dashed var(--gray-200);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:all .2s;background:var(--gray-50)}
+.file-slot:hover{border-color:var(--primary);background:var(--primary-light)}
+.file-slot.loaded{border-color:var(--accent);background:var(--accent-light);border-style:solid}
+.file-slot.batch{grid-column:1/-1}
+.file-slot label{display:block;cursor:pointer;font-size:.78rem;font-weight:600;color:var(--gray-700);text-transform:uppercase;letter-spacing:.5px}
+.file-slot .slot-icon{font-size:1.6rem;display:block;margin-bottom:4px}
+.file-slot .slot-status{font-size:.72rem;color:var(--gray-500);margin-top:4px}
+.file-slot.loaded .slot-status{color:var(--accent);font-weight:600}
+.file-slot input[type="file"]{display:none}
+.btn-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:.95rem;font-weight:700;cursor:pointer;transition:background .2s,transform .1s;font-family:inherit}
+.btn-primary:hover{background:var(--primary-dark);transform:translateY(-1px)}
+.btn-pdf{display:inline-flex;align-items:center;gap:8px;background:var(--danger);color:#fff;border:none;border-radius:8px;padding:12px 24px;font-size:.95rem;font-weight:700;cursor:pointer;transition:background .2s;font-family:inherit}
+.btn-pdf:hover{background:#A93226}
+
+/* RESULTS */
+#resultado{display:none}
+.result-header{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 32px 18px;margin-bottom:22px;display:flex;align-items:center;justify-content:space-between}
+.result-header strong{font-size:1rem;color:var(--primary)}
+.result-header span.sub{font-size:.85rem;color:var(--gray-500);display:block}
+.badge{display:inline-block;background:var(--primary-light);color:var(--primary);border-radius:20px;padding:2px 10px;font-size:.75rem;font-weight:700}
+.badge.green{background:var(--accent-light);color:var(--accent)}
+.badge.orange{background:var(--warn-light);color:var(--warn)}
+
+/* SUMMARY */
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:16px;margin-bottom:24px}
+.summary-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 16px;text-align:center;border-top:4px solid var(--primary)}
+.summary-card.green{border-top-color:var(--accent)}
+.summary-card.orange{border-top-color:var(--warn)}
+.sc-icon{font-size:1.8rem}
+.sc-num{font-size:2rem;font-weight:800;color:var(--primary);line-height:1.1}
+.summary-card.green .sc-num{color:var(--accent)}
+.summary-card.orange .sc-num{color:var(--warn)}
+.sc-label{font-size:.78rem;color:var(--gray-500);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+
+/* SECTION CARDS */
+.section-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden}
+.section-title{background:var(--primary);color:#fff;padding:13px 22px;font-size:.95rem;font-weight:700;display:flex;align-items:center;gap:8px;letter-spacing:.4px}
+.section-title.green{background:var(--accent)}
+.section-title.orange{background:var(--warn)}
+
+/* TABLE */
+.prod-table{width:100%;border-collapse:collapse}
+.prod-table th{background:var(--primary-light);color:var(--primary-dark);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:9px 16px;text-align:left;border-bottom:2px solid var(--gray-200)}
+.prod-table td{padding:10px 16px;font-size:.9rem;border-bottom:1px solid var(--gray-100);color:var(--gray-700)}
+.prod-table tr:last-child td{border-bottom:none}
+.prod-table tr:hover td{background:var(--gray-50)}
+.prod-table td.cat{font-weight:600;color:var(--primary-dark)}
+.prod-table td.subcat{color:var(--gray-500);font-size:.85rem;padding-left:28px}
+.prod-table td.num{font-weight:700;color:var(--primary);text-align:right;font-size:1.02rem}
+.prod-table td.num.total{color:var(--accent);font-size:1.08rem}
+.prod-table td.nf{color:var(--gray-500);font-style:italic;font-size:.82rem}
+.prod-table .row-group td{background:var(--gray-50);font-weight:700;color:var(--gray-900);font-size:.82rem;text-transform:uppercase;letter-spacing:.5px}
+.prod-table .row-subtotal td{background:var(--primary-light)}
+.prod-table .row-subtotal td.num{color:var(--primary-dark)}
+
+/* FOOTER */
+.page-footer{text-align:center;color:var(--gray-500);font-size:.8rem;padding:20px 0 30px}
+.empty-state{text-align:center;padding:50px 20px;color:var(--gray-500);font-size:1rem}
+.empty-state .big{font-size:3rem;display:block;margin-bottom:10px}
+
+@media print{
+  .upload-section,.btn-pdf{display:none}
+  body{background:#fff}
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-icons">🏥 📋</div>
+  <div class="header-text">
+    <h1>Produção Mensal</h1>
+    <h2>Croatá dos Martins (USF I)</h2>
+    <div class="header-date" id="headerDate"></div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- UPLOAD -->
+  <div class="upload-section">
+    <h3>📂 Carregar Arquivos CSV de Produção</h3>
+    <div class="file-grid">
+      <div class="file-slot batch" id="slot-lote">
+        <label for="file-lote"><span class="slot-icon">📁</span>Selecionar vários CSVs<input type="file" id="file-lote" accept=".csv" multiple onchange="loadFiles(this)"></label>
+        <div class="slot-status" id="status-lote">Carrega automaticamente os arquivos por nome</div>
+      </div>
+      <div class="file-slot" id="slot-medico">
+        <label for="file-medico"><span class="slot-icon">🩺</span>Médico<input type="file" id="file-medico" accept=".csv" onchange="loadFile('medico',this)"></label>
+        <div class="slot-status" id="status-medico">Nenhum arquivo</div>
+      </div>
+      <div class="file-slot" id="slot-enfermeiro">
+        <label for="file-enfermeiro"><span class="slot-icon">💉</span>Enfermeiro<input type="file" id="file-enfermeiro" accept=".csv" onchange="loadFile('enfermeiro',this)"></label>
+        <div class="slot-status" id="status-enfermeiro">Nenhum arquivo</div>
+      </div>
+      <div class="file-slot" id="slot-tecnico1">
+        <label for="file-tecnico1"><span class="slot-icon">🩹</span>Téc. Enfermagem 1<input type="file" id="file-tecnico1" accept=".csv" onchange="loadFile('tecnico1',this)"></label>
+        <div class="slot-status" id="status-tecnico1">Nenhum arquivo</div>
+      </div>
+      <div class="file-slot" id="slot-tecnico2">
+        <label for="file-tecnico2"><span class="slot-icon">🩹</span>Téc. Enfermagem 2<input type="file" id="file-tecnico2" accept=".csv" onchange="loadFile('tecnico2',this)"></label>
+        <div class="slot-status" id="status-tecnico2">Nenhum arquivo</div>
+      </div>
+      <div class="file-slot" id="slot-dentista">
+        <label for="file-dentista"><span class="slot-icon">🦷</span>Odontologia<input type="file" id="file-dentista" accept=".csv" onchange="loadFile('dentista',this)"></label>
+        <div class="slot-status" id="status-dentista">Nenhum arquivo</div>
+      </div>
+      <div class="file-slot" id="slot-vacinas">
+        <label for="file-vacinas"><span class="slot-icon">💊</span>Vacinas<input type="file" id="file-vacinas" accept=".csv" onchange="loadFile('vacinas',this)"></label>
+        <div class="slot-status" id="status-vacinas">Nenhum arquivo</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="processar()">⚡ Processar Produção</button>
+      <button class="btn-pdf" onclick="exportPDF()" id="btnPDF" style="display:none">📄 Baixar PDF</button>
+    </div>
+  </div>
+
+  <div class="empty-state" id="emptyState">
+    <span class="big">📊</span>
+    Faça upload dos arquivos CSV e clique em <strong>Processar Produção</strong> para visualizar o relatório.
+  </div>
+
+  <!-- RESULTADO -->
+  <div id="resultado">
+    <div class="result-header">
+      <div>
+        <strong>📅 Período: <span id="periodoTexto">—</span></strong>
+        <span class="sub">Equipe: <span id="equipeTexto">—</span></span>
+      </div>
+      <span class="badge green">e-SUS APS</span>
+    </div>
+
+    <div class="summary-grid" id="summaryCards"></div>
+
+    <div class="section-card">
+      <div class="section-title">🩺 Consultas / Atendimentos</div>
+      <table class="prod-table" id="tabelaConsultas"></table>
+    </div>
+    <div class="section-card">
+      <div class="section-title green">🤰 Pré-Natal</div>
+      <table class="prod-table" id="tabelaPreNatal"></table>
+    </div>
+    <div class="section-card">
+      <div class="section-title orange">💊 Crônicos (HAS / DM)</div>
+      <table class="prod-table" id="tabelaCronicos"></table>
+    </div>
+    <div class="section-card">
+      <div class="section-title">👶 Puericultura</div>
+      <table class="prod-table" id="tabelaPuericultura"></table>
+    </div>
+    <div class="section-card">
+      <div class="section-title green">🔬 Procedimentos e Exames</div>
+      <table class="prod-table" id="tabelaProcedimentos"></table>
+    </div>
+    <div class="section-card">
+      <div class="section-title orange">🏠 Visitas Domiciliares</div>
+      <table class="prod-table" id="tabelaVisitas"></table>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    Relatório gerado automaticamente a partir dos dados do e-SUS Atenção Primária &nbsp;·&nbsp; <span id="footerDate"></span>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+const csvData = { medico:null, enfermeiro:null, tecnico1:null, tecnico2:null, dentista:null, vacinas:null, vacinas2:null };
+const R = {}; // parsed rows keyed by type
+const loadedFiles = {};
+
+// Date setup
+(function(){
+  const now = new Date();
+  document.getElementById('headerDate').textContent = now.toLocaleDateString('pt-BR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('footerDate').textContent = now.toLocaleDateString('pt-BR');
+})();
+
+// ── FILE LOADING ──
+function updateFileStatus(type, fileName) {
+  const slotType = type === 'vacinas2' ? 'vacinas' : type;
+  const slot = document.getElementById('slot-'+slotType);
+  const status = document.getElementById('status-'+slotType);
+  slot.classList.add('loaded');
+  loadedFiles[slotType] = loadedFiles[slotType] || [];
+  if (!loadedFiles[slotType].includes(fileName)) loadedFiles[slotType].push(fileName);
+  status.textContent = '✓ ' + loadedFiles[slotType].join(' + ');
+}
+
+function readCsvFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsText(file, 'latin1');
+  });
+}
+
+function loadFile(type, input) {
+  const file = input.files[0];
+  if (!file) return;
+  readCsvFile(file).then(text => {
+    csvData[type] = text;
+    updateFileStatus(type, file.name);
+  }).catch(() => alert('Não foi possível ler o arquivo: ' + file.name));
+}
+
+function normalizeName(name) {
+  return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function detectFileType(fileName, text, usedTypes) {
+  const name = normalizeName(fileName);
+  const content = normalizeName(text || '');
+  const pickVacinas = () => {
+    if (/\b2\b|(^|[^a-z0-9])ii([^a-z0-9]|$)/.test(name)) return 'vacinas2';
+    if (!csvData.vacinas && !usedTypes.has('vacinas')) return 'vacinas';
+    return 'vacinas2';
+  };
+  const pickTecnico = () => {
+    if (/\b2\b|(^|[^a-z0-9])ii([^a-z0-9]|$)/.test(name)) return 'tecnico2';
+    if (/\b1\b|(^|[^a-z0-9])i([^a-z0-9]|$)/.test(name)) return 'tecnico1';
+    if (!csvData.tecnico1 && !usedTypes.has('tecnico1')) return 'tecnico1';
+    return 'tecnico2';
+  };
+
+  if (content.includes('relatorio de vacinacao')) return pickVacinas();
+  if (content.includes('relatorio de atendimento odontologico')) return 'dentista';
+  if (content.includes('medico da estrategia')) return 'medico';
+  if (content.includes('enfermeiro da estrategia')) return 'enfermeiro';
+  if (content.includes('tecnico de enfermagem')) return pickTecnico();
+
+  if (name.includes('medico')) return 'medico';
+  if (name.includes('dentista') || name.includes('odonto')) return 'dentista';
+  if (name.includes('vacina')) {
+    return pickVacinas();
+  }
+  if (name.includes('tec') && name.includes('enferm')) {
+    return pickTecnico();
+  }
+  if (name.includes('enfermeiro') || name.includes('enfermagem')) return 'enfermeiro';
+  return null;
+}
+
+async function loadFiles(input) {
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+
+  const loaded = [];
+  const ignored = [];
+  const usedTypes = new Set();
+
+  for (const file of files) {
+    try {
+      const text = await readCsvFile(file);
+      const type = detectFileType(file.name, text, usedTypes);
+      if (!type) {
+        ignored.push(file.name);
+        continue;
+      }
+      csvData[type] = text;
+      updateFileStatus(type, file.name);
+      usedTypes.add(type);
+      loaded.push(file.name);
+    } catch (err) {
+      ignored.push(file.name);
+    }
+  }
+
+  const status = loaded.length
+    ? `✓ ${loaded.length} arquivo(s) carregado(s)` + (ignored.length ? ` · ${ignored.length} ignorado(s)` : '')
+    : 'Nenhum arquivo reconhecido';
+  document.getElementById('slot-lote').classList.toggle('loaded', loaded.length > 0);
+  document.getElementById('status-lote').textContent = status;
+  input.value = '';
+}
+
+// ── CSV PARSER → array of [col0, col1, col2, ...] ──
+function parseCSV(text) {
+  if (!text) return [];
+  const sample = text.split('\n').slice(0, 30).join('\n');
+  const semicolons = (sample.match(/;/g) || []).length;
+  const commas = (sample.match(/,/g) || []).length;
+  const sep = semicolons >= commas ? ';' : ',';
+  return text.split('\n').map(line => line.split(sep).map(c => c.trim()));
+}
+
+// ── GET CELL VALUE: row N (1-based), col B=1 / C=2 ──
+// Returns integer or null
+function cellVal(rows, rowNum, colIdx) {
+  const r = rows[rowNum - 1];
+  if (!r) return null;
+  const raw = (r[colIdx] || '').replace(/\s/g,'').replace(/\./g,'').replace(',','.');
+  const v = parseInt(raw);
+  return isNaN(v) ? null : v;
+}
+
+// ── SUM A RANGE of rows in column colIdx (1-based rows, B=1 C=2) ──
+function sumRange(rows, rowStart, rowEnd, colIdx) {
+  let total = 0, found = false;
+  for (let i = rowStart; i <= rowEnd; i++) {
+    const v = cellVal(rows, i, colIdx);
+    if (v !== null && v > 0) { total += v; found = true; }
+  }
+  return found ? total : null;
+}
+
+// ── SUM MULTIPLE RANGES ──
+function sumRanges(rows, ranges, colIdx) {
+  let total = 0, found = false;
+  for (const [s, e] of ranges) {
+    const v = sumRange(rows, s, e, colIdx);
+    if (v !== null) { total += v; found = true; }
+  }
+  return found ? total : null;
+}
+
+// ── FIND ROW BY DESCRIPTION (col 0), return value from colIdx ──
+function findDesc(rows, desc, colIdx) {
+  const dl = desc.toLowerCase().trim();
+  for (let i = 0; i < rows.length; i++) {
+    if ((rows[i][0]||'').toLowerCase().trim() === dl) {
+      const raw = (rows[i][colIdx]||'').replace(/\s/g,'').replace(/\./g,'');
+      const v = parseInt(raw);
+      return isNaN(v) ? null : v;
+    }
+  }
+  return null;
+}
+
+function findDescContains(rows, desc, colIdx) {
+  const dl = desc.toLowerCase().trim();
+  for (let i = 0; i < rows.length; i++) {
+    if ((rows[i][0]||'').toLowerCase().includes(dl)) {
+      const raw = (rows[i][colIdx]||'').replace(/\s/g,'').replace(/\./g,'').replace(',','.');
+      const v = parseInt(raw);
+      return isNaN(v) ? null : v;
+    }
+  }
+  return null;
+}
+
+function sumSigtapProcedures(rows) {
+  if (!rows || !rows.length) return null;
+  let started = false, total = 0, found = false;
+  for (const r of rows) {
+    const desc = (r[0] || '').toLowerCase();
+    if (desc.includes('outros procedimentos') && desc.includes('sigtap')) {
+      started = true;
+      continue;
+    }
+    if (!started || !/^\d{10}\s*-/.test(desc)) continue;
+    if (desc.includes('0101030010')) continue;
+    const raw = (r[1] || '').replace(/\s/g,'').replace(/\./g,'').replace(',','.');
+    const v = parseInt(raw);
+    if (!isNaN(v) && v > 0) { total += v; found = true; }
+  }
+  return found ? total : null;
+}
+
+// ── SUM CONSULTAS: Agendada + Agendada prog. + No dia + Urgência (col B=1) ──
+function sumConsultas(rows) {
+  if (!rows || !rows.length) return null;
+  const keys = ['Consulta agendada','Consulta agendada programada / Cuidado continuado','Consulta no dia','Atendimento de urgência'];
+  let total = 0, found = false;
+  for (const k of keys) {
+    const v = findDesc(rows, k, 1);
+    if (v !== null) { total += v; found = true; }
+  }
+  return found ? total : null;
+}
+
+// ── VACINAS: "Registros identificados" row ──
+function vacTotal(rows) {
+  for (let i = 0; i < rows.length; i++) {
+    if ((rows[i][0]||'').toLowerCase().includes('registros identificados')) {
+      const v = parseInt((rows[i][1]||'').replace(/\D/g,''));
+      return isNaN(v) ? null : v;
+    }
+  }
+  return null;
+}
+
+// ── PERIOD / EQUIPE from rows ──
+function getPeriodo(rows) {
+  for (const r of rows) if ((r[0]||'').toLowerCase().includes('período')) return r[1]||'—';
+  return '—';
+}
+function getEquipe(rows) {
+  for (const r of rows) if ((r[0]||'').toLowerCase() === 'equipe') return (r[1]||'—').replace(/^\d+ - /,'');
+  return '—';
+}
+
+// ── SUM SIGTAP PROC AMBULATORIAIS from tecnico (rows 128+ col B=1) ──
+// B126 instruction = Proc. ambulatoriais SIGTAP section rows 127-133
+// from our data: rows 128-133 are the SIGTAP procs (excluding row 127=visita)
+function sumProcAmb(rows) {
+  if (!rows || !rows.length) return null;
+  // rows 128-133 (1-based) col B=1 — skip row 127 (visita domiciliar)
+  const total = sumRange(rows, 128, rows.length, 1);
+  return total;
+}
+
+// ── VISITAS DOMICILIARES: B73 = "Domicílio" value (1-based row 73, col B=1) ──
+function visitasDom(rows) {
+  return cellVal(rows, 73, 1);
+}
+
+// ── VISITAS TECNICO: B67 = Local de atendimento "Domicílio" ──
+function visitasTec(rows) {
+  return cellVal(rows, 67, 1);
+}
+
+// ── NULLSUM ──
+function ns(...args) {
+  const vals = args.filter(v => v !== null && v !== undefined);
+  if (!vals.length) return null;
+  return vals.reduce((a,b)=>a+b,0);
+}
+
+// ── FORMAT ──
+function fmt(v) { return (v !== null && v !== undefined) ? v.toLocaleString('pt-BR') : null; }
+
+// ── TABLE HELPERS ──
+function thead(cols) {
+  return `<thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+}
+function trow(label, detail, val, isSub, isTotal) {
+  const tdCls = isSub ? 'subcat' : 'cat';
+  const numCls = 'num' + (isTotal ? ' total' : '');
+  const display = val === null ? `<span class="nf">Não encontrado</span>` : fmt(val);
+  const numTd = val === null
+    ? `<td class="nf">—</td>`
+    : `<td class="${numCls}">${display}</td>`;
+  return `<tr${isTotal?' class="row-subtotal"':''}><td class="${tdCls}">${label}</td><td class="subcat">${detail}</td>${numTd}</tr>`;
+}
+function tgroup(label) {
+  return `<tr class="row-group"><td colspan="3">${label}</td></tr>`;
+}
+
+// ══════════════════════════════════════════
+// MAIN PROCESS
+// ══════════════════════════════════════════
+function processar() {
+  for (const key of Object.keys(csvData)) {
+    R[key] = csvData[key] ? parseCSV(csvData[key]) : [];
+  }
+  // Merge two tecnicos
+  const tec1 = R.tecnico1 || [];
+  const tec2 = R.tecnico2 || [];
+
+  // Period / equipe
+  const mainRows = R.medico.length ? R.medico : (R.enfermeiro.length ? R.enfermeiro : []);
+  document.getElementById('periodoTexto').textContent = getPeriodo(mainRows);
+  document.getElementById('equipeTexto').textContent = getEquipe(mainRows);
+
+  // ── 1. CONSULTAS ──
+  const cMed = sumConsultas(R.medico);
+  const cEnf = sumConsultas(R.enfermeiro);
+  const cDen = sumConsultas(R.dentista);
+  const cTotal = ns(cMed, cEnf, cDen);
+  let t1 = thead(['Profissional','Detalhe','Qtd']);
+  t1 += trow('Médico','Agendada + Agend. Prog. + No dia + Urgência', cMed, false, false);
+  t1 += trow('Enfermeiro','Agendada + Agend. Prog. + No dia + Urgência', cEnf, false, false);
+  t1 += trow('Odontologia','Agendada + No dia + Urgência', cDen, false, false);
+  t1 += trow('TOTAL','', cTotal, false, true);
+  t1 += '</tbody>';
+  document.getElementById('tabelaConsultas').innerHTML = t1;
+
+  // ── 2. PRÉ-NATAL ──
+  // Médico: B250 = row 250 col B=1 (W78 - GRAVIDEZ)
+  // Enfermeiro: B254 = row 254 col B=1 (W78 - GRAVIDEZ)
+  // Odontologia: B28 = row 28 col B=1
+  const pnMed = cellVal(R.medico, 250, 1);
+  const pnEnf = cellVal(R.enfermeiro, 254, 1);
+  const pnDen = cellVal(R.dentista, 28, 1);
+  const pnTotal = ns(pnMed, pnEnf, pnDen);
+  let t2 = thead(['Profissional','Detalhe','Qtd']);
+  t2 += trow('Médico','B250 – W78 (Gravidez)', pnMed, false, false);
+  t2 += trow('Enfermeiro','B254 – W78 (Gravidez)', pnEnf, false, false);
+  t2 += trow('Odontologia','B28 – Gestante', pnDen, false, false);
+  t2 += trow('TOTAL','', pnTotal, false, true);
+  t2 += '</tbody>';
+  document.getElementById('tabelaPreNatal').innerHTML = t2;
+
+  // ── 3. CRÔNICOS ──
+  // HAS: Médico B282 (row 282 col B=1 = K86) + B218 (row 218 col B=1 = I10)
+  //       Enfermeiro B220 = row 220 col B=1 (K86 only per instrução)
+  // DM:  Médico B262 (row 262) + B245 (row 245) + B246 (row 246)
+  //       Enfermeiro B251 (row 251) + B250 (row 250)
+  // Note: mapa says "Crônicos somente enfermeiro K86"
+  const hasEnf = cellVal(R.enfermeiro, 220, 1);   // K86 Enfermeiro
+  const hasMed = ns(cellVal(R.medico, 282, 1), cellVal(R.medico, 218, 1));
+  const hasTotal = ns(hasMed, hasEnf);
+
+  const dmMed = ns(cellVal(R.medico, 262, 1), cellVal(R.medico, 245, 1), cellVal(R.medico, 246, 1));
+  const dmEnf = ns(cellVal(R.enfermeiro, 251, 1), cellVal(R.enfermeiro, 250, 1));
+  const dmTotal = ns(dmMed, dmEnf);
+
+  let t3 = thead(['Grupo','Detalhe','Qtd']);
+  t3 += tgroup('HAS – Hipertensão Arterial Sistêmica');
+  t3 += trow('Médico','B282 (K86) + B218 (I10)', hasMed, true, false);
+  t3 += trow('Enfermeiro','B220 (K86)', hasEnf, true, false);
+  t3 += trow('Subtotal HAS','', hasTotal, false, true);
+  t3 += tgroup('DM – Diabetes Mellitus');
+  t3 += trow('Médico','B262 + B245 + B246', dmMed, true, false);
+  t3 += trow('Enfermeiro','B251 + B250', dmEnf, true, false);
+  t3 += trow('Subtotal DM','', dmTotal, false, true);
+  t3 += trow('TOTAL CRÔNICOS','', ns(hasTotal, dmTotal), false, true);
+  t3 += '</tbody>';
+  document.getElementById('tabelaCronicos').innerHTML = t3;
+
+  // ── 4. PUERICULTURA ──
+  // B205 = row 205 col B=1 (ABP004 - PUERICULTURA)
+  const puMed = cellVal(R.medico, 205, 1);
+  const puEnf = cellVal(R.enfermeiro, 205, 1);
+  const puTotal = ns(puMed, puEnf);
+  let t4 = thead(['Profissional','Detalhe','Qtd']);
+  t4 += trow('Médico','B205 – ABP004 (Puericultura)', puMed, false, false);
+  t4 += trow('Enfermeiro','B205 – ABP004 (Puericultura)', puEnf, false, false);
+  t4 += trow('TOTAL','', puTotal, false, true);
+  t4 += '</tbody>';
+  document.getElementById('tabelaPuericultura').innerHTML = t4;
+
+  // ── 5. PROCEDIMENTOS E EXAMES ──
+  // Pressão Arterial: buscar pelo código SIGTAP 0301100039 — somar tec1+tec2
+  const pa1 = findDescContains(tec1, '0301100039', 1);
+  const pa2 = findDescContains(tec2, '0301100039', 1);
+  const pa = ns(pa1, pa2);
+
+  // Hemoglobina Glicada (Solicitação): Médico row 341 col C=2, Enfermeiro row 278 col C=2
+  const hbgMed = cellVal(R.medico, 341, 2);
+  const hbgEnf = cellVal(R.enfermeiro, 278, 2);
+  const hbg = ns(hbgMed, hbgEnf);
+
+  // Exames Laboratoriais:
+  // Médico: C332:C354 + C364:C417 → rows 332-354 e 364-417, col C=2
+  const labMed = ns(
+    sumRange(R.medico, 332, 354, 2),
+    sumRange(R.medico, 364, 417, 2)
+  );
+  // Enfermeiro: C269:C291 + C301:C343 → rows 269-291 e 301-343, col C=2
+  const labEnf = ns(
+    sumRange(R.enfermeiro, 269, 291, 2),
+    sumRange(R.enfermeiro, 301, 343, 2)
+  );
+  const labTotal = ns(labMed, labEnf);
+
+  // Hemoglobina glicada já está dentro dos intervalos de exames — não somar em dobro
+  // (A instrução do mapa pede apenas a solicitação, dentro dos exames totais)
+
+  // ECG: Médico row 335 col C=2, Enfermeiro row 272 col C=2 — somar (já estão dentro do intervalo de lab)
+  const ecgMed = cellVal(R.medico, 335, 2);
+  const ecgEnf = cellVal(R.enfermeiro, 272, 2);
+  const ecgTotal = ns(ecgMed, ecgEnf);
+
+  // Teste do Pezinho: mapa indica Enfermeiro C297 (Quantidade Solicitada)
+  const pezinho = findDesc(R.enfermeiro, 'Teste do pezinho', 2) ?? cellVal(R.enfermeiro, 297, 2);
+
+  // Vacinas: "Registros identificados" = row 23 col B=1 do(s) CSV(s) de vacinas
+  const vac = ns(cellVal(R.vacinas, 23, 1), cellVal(R.vacinas2, 23, 1));
+
+  // Proc. Ambulatoriais: seção SIGTAP dos técnicos, sem visita domiciliar
+  const proc1 = sumSigtapProcedures(tec1);
+  const proc2 = sumSigtapProcedures(tec2);
+  const procAmb = ns(proc1, proc2);
+
+  let t5 = thead(['Indicador','Detalhe','Qtd']);
+  t5 += trow('Pressão Arterial','Téc. Enf. – SIGTAP 0301100039 (Téc.1 + Téc.2)', pa, false, false);
+  t5 += trow('Hemoglobina Glicada (Sol.)','Médico row 341 + Enfermeiro row 278 col C', hbg, false, false);
+  t5 += trow('Exames Laboratoriais','Médico (C332:C354 + C364:C417) + Enfermeiro (C269:C291 + C301:C343)', labTotal, false, false);
+  t5 += trow('ECG (Solicitado)','Médico row 335 + Enfermeiro row 272 col C', ecgTotal, false, false);
+  t5 += trow('Teste do Pezinho','Enfermeiro – C297 (solicitada)', pezinho, false, false);
+  t5 += trow('Vacinas','Registros identificados – row 23 col B', vac, false, false);
+  t5 += trow('Proc. Ambulatoriais','Téc. Enf. – seção SIGTAP sem visita domiciliar (Téc.1 + Téc.2)', procAmb, false, false);
+  t5 += '</tbody>';
+  document.getElementById('tabelaProcedimentos').innerHTML = t5;
+
+  // ── 6. VISITAS DOMICILIARES ──
+  // Médico B73 = row 73 col B=1 ("Domicílio")
+  // Enfermeiro B73 = row 73 col B=1 ("Domicílio")
+  // Técnico: B67 = Local: Domicílio
+  const vdMed = cellVal(R.medico, 73, 1);
+  const vdEnf = cellVal(R.enfermeiro, 73, 1);
+  const vdTec1 = visitasTec(tec1);
+  const vdTec2 = visitasTec(tec2);
+  const vdTec = ns(vdTec1, vdTec2);
+  const vdTotal = ns(vdMed, vdEnf, vdTec);
+
+  let t6 = thead(['Profissional','Detalhe','Qtd']);
+  t6 += trow('Médico','B73 – Local: Domicílio', vdMed, false, false);
+  t6 += trow('Enfermeiro','B73 – Local: Domicílio', vdEnf, false, false);
+  t6 += trow('Téc. Enfermagem','B67 – Local: Domicílio (Téc.1 + Téc.2)', vdTec, false, false);
+  t6 += trow('TOTAL','', vdTotal, false, true);
+  t6 += '</tbody>';
+  document.getElementById('tabelaVisitas').innerHTML = t6;
+
+  // ── SUMMARY CARDS ──
+  document.getElementById('summaryCards').innerHTML = [
+    {icon:'🩺', num:fmt(cTotal),                       label:'Total Consultas',    cls:''},
+    {icon:'🤰', num:fmt(pnTotal),                      label:'Pré-Natal',          cls:'green'},
+    {icon:'💊', num:fmt(ns(hasTotal,dmTotal)),          label:'Crônicos',           cls:'orange'},
+    {icon:'👶', num:fmt(puTotal),                      label:'Puericultura',       cls:''},
+    {icon:'💉', num:fmt(vac),                          label:'Vacinas',            cls:'green'},
+    {icon:'🏠', num:fmt(vdTotal),                      label:'Visitas Dom.',       cls:'orange'},
+  ].map(c=>`<div class="summary-card ${c.cls}">
+    <div class="sc-icon">${c.icon}</div>
+    <div class="sc-num">${c.num ?? '—'}</div>
+    <div class="sc-label">${c.label}</div>
+  </div>`).join('');
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('resultado').style.display = 'block';
+  document.getElementById('btnPDF').style.display = 'inline-flex';
+}
+
+// ── EXPORT PDF ──
+async function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const el = document.getElementById('resultado');
+  const canvas = await html2canvas(el, {scale:1.5, useCORS:true, logging:false});
+  const img = canvas.toDataURL('image/png');
+  const pdf = new jsPDF({orientation:'p', unit:'mm', format:'a4'});
+  const pdfW = pdf.internal.pageSize.getWidth();
+  const pdfH = pdf.internal.pageSize.getHeight();
+  const imgW = pdfW - 20;
+  const imgH = (canvas.height * imgW) / canvas.width;
+  let remaining = imgH;
+  let first = true;
+  while (remaining > 0) {
+    if (!first) pdf.addPage();
+    first = false;
+    const sliceH = Math.min(pdfH - 20, remaining);
+    const srcY = (imgH - remaining) * (canvas.height / imgH);
+    const srcH = sliceH * (canvas.height / imgH);
+    const sc = document.createElement('canvas');
+    sc.width = canvas.width; sc.height = srcH;
+    sc.getContext('2d').drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+    pdf.addImage(sc.toDataURL('image/png'), 'PNG', 10, 10, imgW, sliceH);
+    remaining -= sliceH;
+  }
+  pdf.save('producao_mensal_croata_martins.pdf');
+}
+</script>
+</body>
+</html>
