@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -97,6 +96,28 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--gray-100);color:var
 .page-footer{text-align:center;color:var(--gray-500);font-size:.8rem;padding:20px 0 30px}
 .empty-state{text-align:center;padding:50px 20px;color:var(--gray-500);font-size:1rem}
 .empty-state .big{font-size:3rem;display:block;margin-bottom:10px}
+
+/* ── COPY TOAST ── */
+#copyToast{
+  position:fixed;bottom:28px;left:50%;
+  transform:translateX(-50%) translateY(16px);
+  background:linear-gradient(135deg,var(--primary-dark),var(--primary));
+  color:#fff;font-family:'Source Sans 3',sans-serif;
+  font-size:.85rem;font-weight:700;
+  padding:10px 22px;border-radius:30px;
+  box-shadow:0 6px 24px rgba(0,91,142,.35);
+  opacity:0;pointer-events:none;
+  transition:opacity .25s ease,transform .25s ease;
+  z-index:9999;display:flex;align-items:center;gap:8px;white-space:nowrap;
+}
+#copyToast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.num-copyable{cursor:pointer;position:relative;}
+.num-copyable:hover{background:var(--primary-light);border-radius:4px;}
+.num-copyable::after{
+  content:'📋';font-size:.65rem;margin-left:5px;
+  opacity:0;transition:opacity .15s;vertical-align:middle;
+}
+.num-copyable:hover::after{opacity:.6;}
 
 @media print{
   .upload-section,.btn-pdf{display:none}
@@ -711,5 +732,63 @@ async function exportPDF() {
   pdf.save('producao_mensal_croata_martins.pdf');
 }
 </script>
+
+<!-- COPY TOAST -->
+<div id="copyToast">✅ <span id="toastVal"></span> copiado!</div>
+
+<script>
+// ── COPIAR NÚMERO AO CLICAR ─────────────────────────────
+let _toastTimer = null;
+
+function showToast(val) {
+  const toast = document.getElementById('copyToast');
+  document.getElementById('toastVal').textContent = val;
+  toast.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+function copyNumber(el) {
+  // extrai só os dígitos / número limpo do texto da célula
+  const raw = el.textContent.replace(/📋/g, '').trim();
+  // remove pontuação de milhar e espaços, mantém o número
+  const num = raw.replace(/\./g, '').replace(/,/g, '.').trim();
+  const copy = (text) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => showToast(raw)).catch(() => fallback(text));
+    } else { fallback(text); }
+  };
+  const fallback = (text) => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast(raw);
+  };
+  copy(num);
+}
+
+// Delega o clique para qualquer td.num que apareça no DOM (incluindo renderizados depois)
+document.addEventListener('click', function(e) {
+  const td = e.target.closest('td.num');
+  if (!td) return;
+  // ignora células vazias ou com traço
+  const txt = td.textContent.replace(/📋/g,'').trim();
+  if (!txt || txt === '—' || txt === '-') return;
+  copyNumber(td);
+});
+
+// Adiciona classe num-copyable e title nas células .num ao renderizar
+// Usa MutationObserver para pegar tabelas geradas dinamicamente
+const _observer = new MutationObserver(() => {
+  document.querySelectorAll('td.num:not(.num-copyable)').forEach(td => {
+    const txt = td.textContent.trim();
+    if (txt && txt !== '—' && txt !== '-') {
+      td.classList.add('num-copyable');
+      td.title = 'Clique para copiar';
+    }
+  });
+});
+_observer.observe(document.body, { childList: true, subtree: true });
+</script>
 </body>
-</html>
