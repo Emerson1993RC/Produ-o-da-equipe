@@ -1,0 +1,296 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Microáreas ACS - Cidadãos Vinculados</title>
+<style>
+:root{
+  --primary:#075985;--primary-dark:#0c4a6e;--primary-light:#e0f2fe;
+  --accent:#059669;--accent-light:#dcfce7;--warn:#b45309;--warn-light:#fff7ed;
+  --danger:#b91c1c;--white:#fff;--bg:#eef6f8;--line:#dbe5ec;
+  --muted:#64748b;--ink:#0f172a;--soft:#f8fafc;--radius:10px;
+  --shadow:0 12px 32px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;background:linear-gradient(180deg,#dff3fb 0,#eef6f8 240px,#eef6f8 100%);color:var(--ink);min-height:100vh}
+.top{background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:5;backdrop-filter:blur(10px)}
+.brand{display:flex;gap:12px;align-items:center}
+.brand-mark{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:grid;place-items:center;color:#fff;font-weight:900}
+.brand h1{font-size:1.15rem;color:var(--primary);margin-bottom:2px}
+.brand p{font-size:.84rem;color:var(--muted)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{border:0;border-radius:8px;padding:10px 14px;font-weight:800;cursor:pointer;font-family:inherit}
+.btn.primary{background:var(--primary);color:#fff}
+.btn.secondary{background:var(--primary-light);color:var(--primary)}
+.file-btn{position:relative;overflow:hidden}
+.file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.wrap{max-width:1220px;margin:0 auto;padding:22px}
+.panel{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+.panel-head{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.panel-head h2{font-size:.92rem;text-transform:uppercase;letter-spacing:.08em;color:var(--primary)}
+.panel-body{padding:16px 18px}
+.notice{border-left:5px solid var(--primary);color:var(--muted);line-height:1.45}
+.map-panel.collapsed .panel-body{display:none}
+.map-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.map-card{border:1px solid var(--line);border-radius:8px;background:var(--soft);padding:12px}
+.map-card label{display:block;font-size:.72rem;color:var(--muted);font-weight:800;text-transform:uppercase;margin-bottom:6px}
+.map-card input{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:.92rem}
+.map-card .row{display:grid;grid-template-columns:1fr 78px;gap:8px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.sc{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow);border-top:4px solid var(--primary)}
+.sc.green{border-top-color:var(--accent)}.sc.orange{border-top-color:var(--warn)}.sc.red{border-top-color:var(--danger)}
+.sc small{display:block;color:var(--muted);text-transform:uppercase;font-size:.68rem;font-weight:800;letter-spacing:.06em}
+.sc strong{font-size:1.8rem;color:var(--primary);display:block;margin-top:3px}
+.sc.green strong{color:var(--accent)}.sc.orange strong{color:var(--warn)}.sc.red strong{color:var(--danger)}
+.accordion{display:grid;gap:12px}
+.acs{border:1px solid var(--line);border-radius:10px;background:#fff;box-shadow:var(--shadow);overflow:hidden}
+.acs summary{list-style:none;cursor:pointer;padding:16px 18px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.acs summary::-webkit-details-marker{display:none}
+.acs-title{display:flex;align-items:center;gap:10px;font-weight:900;color:var(--primary-dark)}
+.pill{border-radius:999px;background:var(--primary-light);color:var(--primary);padding:4px 10px;font-size:.78rem;font-weight:900}
+.count{font-size:1.3rem;font-weight:900;color:var(--primary)}
+.acs[open] summary{background:var(--primary-light)}
+.acs-body{padding:16px 18px;display:grid;gap:14px}
+.mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.mini{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:10px}
+.mini span{display:block;font-size:.7rem;color:var(--muted);font-weight:800;text-transform:uppercase}
+.mini b{font-size:1.3rem;color:var(--primary)}
+table{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+th,td{padding:9px 10px;border-bottom:1px solid #edf2f7;text-align:left;font-size:.84rem}
+th{background:var(--primary-light);color:var(--primary-dark);font-size:.7rem;text-transform:uppercase;letter-spacing:.05em}
+tr:last-child td{border-bottom:0}
+td.num{text-align:right;font-weight:900;color:var(--primary);cursor:pointer}
+td.muted{color:var(--muted)}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+.empty{padding:40px 18px;text-align:center;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);background:var(--ink);color:#fff;border-radius:999px;padding:10px 16px;font-weight:800;opacity:0;pointer-events:none;transition:.2s;z-index:20}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:700px){.top{position:static;align-items:flex-start;flex-direction:column}.wrap{padding:14px}.acs summary{grid-template-columns:1fr}.count{text-align:left}}
+@media print{.top,.notice,.map-panel,.tools{display:none!important}body{background:#fff}.wrap{max-width:none;padding:0}.panel,.acs{box-shadow:none}.acs{break-inside:avoid}.acs:not([open]) .acs-body{display:block}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="brand-mark">ACS</div>
+    <div>
+      <h1>Cidadãos por ACS e Microárea</h1>
+      <p id="subtitle">Carregue o CSV de cidadãos vinculados para contar automaticamente cada área.</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn secondary file-btn">Carregar CSV<input type="file" accept=".csv" onchange="loadFile(this)"></button>
+    <button class="btn primary" onclick="window.print()">Baixar PDF</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="panel notice" id="notice">
+    <div class="panel-body">
+      Selecione o arquivo <strong>acompanhamento-cidadaos-vinculados</strong>. O sistema usa a coluna <strong>Microárea</strong> e o mapa abaixo para agrupar os cidadãos por ACS.
+    </div>
+  </section>
+
+  <section class="panel map-panel collapsed" id="mapPanel">
+    <div class="panel-head">
+      <h2>Mapa Microárea → ACS</h2>
+      <div class="tools">
+        <button class="btn secondary" id="mapToggle" onclick="toggleMap()">Mostrar mapa</button>
+        <button class="btn secondary" onclick="applyMapAndRender()">Aplicar mapa</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="map-grid" id="mapGrid"></div>
+    </div>
+  </section>
+
+  <section id="summary" class="summary" style="display:none"></section>
+
+  <section class="panel" id="resultPanel" style="display:none">
+    <div class="panel-head">
+      <h2>Pastas por ACS</h2>
+      <div class="tools">
+        <button class="btn secondary" onclick="toggleAll(true)">Abrir todas</button>
+        <button class="btn secondary" onclick="toggleAll(false)">Fechar todas</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="accordion" id="accordion"></div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast">Copiado</div>
+
+<script>
+const defaultMap = [
+  {area:'13', acs:'Iana Karen Silva Paiva'},
+  {area:'15', acs:'Isabel Passos de Farias'},
+  {area:'12', acs:'Sergio Gomes Farias'},
+  {area:'05', acs:'Rosangela Ribeiro Viana'},
+  {area:'06', acs:'Antonia de Maria Rodrigues'},
+  {area:'14', acs:'Antonia Naiara Aragão Melo'},
+  {area:'Não informada', acs:'Não informada'},
+  {area:'Fora da área', acs:'Fora da área'}
+];
+let currentMap = defaultMap.map(x=>({...x}));
+let records = [];
+let grouped = [];
+
+function renderMap(){
+  document.getElementById('mapGrid').innerHTML=currentMap.map((m,i)=>`
+    <div class="map-card">
+      <div class="row">
+        <div>
+          <label>ACS</label>
+          <input value="${escapeHtml(m.acs)}" oninput="currentMap[${i}].acs=this.value">
+        </div>
+        <div>
+          <label>Área</label>
+          <input value="${escapeHtml(m.area)}" oninput="currentMap[${i}].area=this.value">
+        </div>
+      </div>
+    </div>`).join('');
+}
+renderMap();
+
+function parseCSV(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  return lines.map(parseLine);
+}
+function parseLine(line){
+  const out=[];let cur='',q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i], nx=line[i+1];
+    if(ch==='"' && q && nx==='"'){cur+='"';i++;continue}
+    if(ch==='"'){q=!q;continue}
+    if(ch===';' && !q){out.push(cur.trim());cur='';continue}
+    cur+=ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+function loadFile(input){
+  const file=input.files && input.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const rows=parseCSV(e.target.result);
+    buildRecords(rows,file.name);
+    applyMapAndRender();
+  };
+  reader.readAsText(file,'latin1');
+}
+function buildRecords(rows,fileName){
+  const headerIndex=rows.findIndex(r=>r.includes('Microárea') && r.includes('Nome'));
+  if(headerIndex<0){alert('Não encontrei o cabeçalho com Microárea e Nome.');return}
+  const header=rows[headerIndex];
+  const idx=name=>header.findIndex(h=>normalize(h)===normalize(name));
+  const col={
+    equipe:idx('Nome equipe'), micro:idx('Microárea'), endereco:idx('Endereço'),
+    doc:idx('CPF/CNS'), nome:idx('Nome'), idade:idx('Idade'), sexo:idx('Sexo'),
+    nascimento:idx('Data de nascimento'), celular:idx('Telefone celular'),
+    atualizacao:idx('Última atualização cadastral'), origem:idx('Origem')
+  };
+  records=rows.slice(headerIndex+1).filter(r=>r.length>5).map(r=>({
+    equipe:r[col.equipe]||'', micro:r[col.micro]||'Não informada', endereco:r[col.endereco]||'',
+    doc:r[col.doc]||'', nome:r[col.nome]||'', idade:r[col.idade]||'', sexo:r[col.sexo]||'',
+    nascimento:r[col.nascimento]||'', celular:r[col.celular]||'', atualizacao:r[col.atualizacao]||'', origem:r[col.origem]||''
+  })).filter(r=>r.nome);
+  document.getElementById('subtitle').textContent=`${fileName} · ${records.length.toLocaleString('pt-BR')} cidadãos`;
+}
+function applyMapAndRender(){
+  if(!records.length) return;
+  const map = new Map(currentMap.map(m=>[normalizeArea(m.area),m.acs||m.area]));
+  const buckets = new Map();
+  for(const r of records){
+    const acs = map.get(normalizeArea(r.micro)) || `Microárea ${r.micro}`;
+    if(!buckets.has(acs)) buckets.set(acs,{acs, areas:new Set(), records:[]});
+    const b=buckets.get(acs);
+    b.areas.add(r.micro);
+    b.records.push(r);
+  }
+  grouped=Array.from(buckets.values()).sort((a,b)=>{
+    if(a.acs.includes('Não informada')) return 1;
+    if(b.acs.includes('Não informada')) return -1;
+    if(a.acs.includes('Fora da área')) return 1;
+    if(b.acs.includes('Fora da área')) return -1;
+    return a.acs.localeCompare(b.acs,'pt-BR');
+  });
+  render();
+}
+function render(){
+  document.getElementById('notice').style.display='none';
+  document.getElementById('summary').style.display='grid';
+  document.getElementById('resultPanel').style.display='block';
+  const total=records.length;
+  const fora=records.filter(r=>normalizeArea(r.micro)==='fora da area').length;
+  const nao=records.filter(r=>normalizeArea(r.micro)==='nao informada').length;
+  const fem=records.filter(r=>normalize(r.sexo)==='feminino').length;
+  const masc=records.filter(r=>normalize(r.sexo)==='masculino').length;
+  document.getElementById('summary').innerHTML=[
+    ['Total de cidadãos',total,''],
+    ['ACS/microáreas',grouped.length,'green'],
+    ['Feminino',fem,'orange'],
+    ['Masculino',masc,''],
+    ['Não informada',nao,'red'],
+    ['Fora da área',fora,'red']
+  ].map(c=>`<div class="sc ${c[2]}"><small>${c[0]}</small><strong>${fmt(c[1])}</strong></div>`).join('');
+  document.getElementById('accordion').innerHTML=grouped.map((g,i)=>renderGroup(g,i)).join('');
+}
+function renderGroup(g,i){
+  const fem=g.records.filter(r=>normalize(r.sexo)==='feminino').length;
+  const masc=g.records.filter(r=>normalize(r.sexo)==='masculino').length;
+  const cds=g.records.filter(r=>normalize(r.origem)==='cds').length;
+  const pec=g.records.filter(r=>normalize(r.origem)==='pec').length;
+  return `<details class="acs" ${i===0?'open':''}>
+    <summary>
+      <div class="acs-title"><span>${escapeHtml(g.acs)}</span><span class="pill">Área ${escapeHtml(Array.from(g.areas).join(', '))}</span></div>
+      <div class="count" title="Clique para copiar">${fmt(g.records.length)}</div>
+    </summary>
+    <div class="acs-body">
+      <div class="mini-grid">
+        <div class="mini"><span>Total</span><b>${fmt(g.records.length)}</b></div>
+        <div class="mini"><span>Feminino</span><b>${fmt(fem)}</b></div>
+        <div class="mini"><span>Masculino</span><b>${fmt(masc)}</b></div>
+        <div class="mini"><span>CDS</span><b>${fmt(cds)}</b></div>
+        <div class="mini"><span>PEC</span><b>${fmt(pec)}</b></div>
+      </div>
+      <table>
+        <thead><tr><th>Nome</th><th>Idade</th><th>Sexo</th><th>Microárea</th><th>Atualização</th><th>Origem</th></tr></thead>
+        <tbody>${g.records.map(r=>`<tr>
+          <td>${escapeHtml(r.nome)}</td>
+          <td>${escapeHtml(r.idade)}</td>
+          <td>${escapeHtml(r.sexo)}</td>
+          <td>${escapeHtml(r.micro)}</td>
+          <td class="muted">${escapeHtml(r.atualizacao)}</td>
+          <td class="muted">${escapeHtml(r.origem)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </details>`;
+}
+function toggleAll(open){document.querySelectorAll('.acs').forEach(d=>d.open=open)}
+function toggleMap(){
+  const panel=document.getElementById('mapPanel');
+  const btn=document.getElementById('mapToggle');
+  panel.classList.toggle('collapsed');
+  btn.textContent=panel.classList.contains('collapsed')?'Mostrar mapa':'Ocultar mapa';
+}
+function normalize(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim()}
+function normalizeArea(v){return normalize(v).replace(/^0(\d)$/,'$1').replace(/^(\d)$/,'0$1')}
+function fmt(v){return Number(v||0).toLocaleString('pt-BR')}
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function toast(text){const t=document.getElementById('toast');t.textContent=text;t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),1300)}
+document.addEventListener('click',e=>{
+  const num=e.target.closest('.count,td.num,.mini b,.sc strong');
+  if(!num) return;
+  const text=num.textContent.replace(/[^\d]/g,'');
+  if(!text) return;
+  if(navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(()=>toast(`Copiado: ${text}`));
+  else toast(text);
+});
+</script>
+</body>
+</html>
