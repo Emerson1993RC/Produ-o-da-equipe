@@ -80,11 +80,24 @@ table.pt tr:hover td{background:var(--gray-50)}
 table.pt td.cat{font-weight:600;color:var(--primary-dark)}
 table.pt td.sub{color:var(--gray-500);font-size:.84rem;padding-left:28px}
 table.pt td.num{font-weight:700;color:var(--primary);text-align:right;font-size:1.02rem}
+table.pt td.num,.rank-num{cursor:pointer;position:relative;user-select:none}
+table.pt td.num:hover,.rank-num:hover{filter:brightness(.85);text-decoration:underline;text-underline-offset:3px}
 table.pt td.num.tot{color:var(--accent);font-size:1.08rem}
 table.pt td.nf{color:#aaa;font-style:italic;text-align:right;font-size:.82rem}
 table.pt tr.grp td{background:var(--gray-50);font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-700);padding:8px 16px}
 table.pt tr.stot td{background:var(--primary-light)}
 table.pt tr.stot td.num{color:var(--primary-dark)}
+.disease-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;padding:16px}
+.disease-card{border:1px solid var(--gray-200);border-radius:10px;background:var(--gray-50);padding:14px}
+.disease-card h4{color:var(--primary-dark);font-size:.95rem;margin-bottom:10px}
+.rank-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-200)}
+.rank-row:last-child{border-bottom:none}
+.rank-label{font-size:.84rem;color:var(--gray-700);font-weight:600}
+.rank-num{font-weight:800;color:var(--primary)}
+.rank-bar{grid-column:1/-1;height:7px;background:var(--gray-200);border-radius:20px;overflow:hidden}
+.rank-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:20px}
+.copy-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,16px);background:var(--gray-900);color:#fff;border-radius:999px;padding:10px 18px;font-size:.88rem;font-weight:700;box-shadow:0 10px 28px rgba(15,23,42,.25);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:1000}
+.copy-toast.show{opacity:1;transform:translate(-50%,0)}
 
 .page-footer{text-align:center;color:var(--gray-500);font-size:.8rem;padding:20px 0 30px}
 @media print{.upload-section,.btn-pdf,.btn-c{display:none}body{background:#fff}}
@@ -141,12 +154,15 @@ table.pt tr.stot td.num{color:var(--primary-dark)}
     <div class="sec"><div class="sec-title">👶 Puericultura</div><table class="pt" id="tPueri"></table></div>
     <div class="sec"><div class="sec-title green">🔬 Procedimentos e Exames</div><table class="pt" id="tProced"></table></div>
     <div class="sec"><div class="sec-title orange">🏠 Visitas Domiciliares</div><table class="pt" id="tVisitas"></table></div>
+    <div class="sec"><div class="sec-title">👥 Faixa Etária por Sexo</div><table class="pt" id="tFaixaEtaria"></table></div>
+    <div class="sec"><div class="sec-title green">📈 Doenças Mais Acometidas</div><div id="tDoencas"></div></div>
   </div>
 
   <div class="page-footer">
     Relatório gerado automaticamente · e-SUS Atenção Primária &nbsp;·&nbsp; <span id="footerDate"></span>
   </div>
 </div>
+<div class="copy-toast" id="copyToast">Número copiado</div>
 
 <script>
 // ══════════════════════════════════════════════════════
@@ -346,6 +362,70 @@ function findSumAcross(rowSets, keys, colIdx){
   return found?total:null;
 }
 
+// Faixa etária table rows use: Descrição;Masculino;Feminino;Indeterminado;Não informado
+function ageSex(rows, faixa){
+  if(!rows||!rows.length) return {m:null,f:null,total:null};
+  const key=faixa.toLowerCase();
+  for(const r of rows){
+    const desc=(r[0]||'').toLowerCase().trim();
+    if(desc===key || desc.startsWith(key)){
+      const m=parseInt((r[1]||'').replace(/[\s.]/g,''));
+      const f=parseInt((r[2]||'').replace(/[\s.]/g,''));
+      const mv=isNaN(m)?null:m, fv=isNaN(f)?null:f;
+      return {m:mv,f:fv,total:ns(mv,fv)};
+    }
+  }
+  return {m:null,f:null,total:null};
+}
+
+function collectDiseases(rows, source){
+  const items=[];
+  if(!rows||!rows.length) return items;
+  let inDisease=false;
+  for(const r of rows){
+    const c0=(r[0]||'').trim();
+    const lower=c0.toLowerCase();
+    if(lower.startsWith('problemas / condições avaliadas')){
+      inDisease=true;
+      continue;
+    }
+    if(inDisease && (
+      lower.startsWith('exames solicitados') ||
+      lower.startsWith('exames - triagem') ||
+      lower.startsWith('outros exames') ||
+      lower.startsWith('descrição;')
+    )) {
+      if(lower.startsWith('exames')) inDisease=false;
+    }
+    if(!inDisease || !c0 || lower==='descrição') continue;
+    const v=parseInt((r[1]||'').replace(/[\s.]/g,''));
+    if(!isNaN(v) && v>0){
+      items.push({source, label:c0, value:v});
+    }
+  }
+  return items;
+}
+
+function topDiseases(rows, source, limit){
+  return collectDiseases(rows, source)
+    .sort((a,b)=>b.value-a.value)
+    .slice(0, limit || 8);
+}
+
+function mergeDiseaseRanking(...lists){
+  const map=new Map();
+  for(const list of lists){
+    for(const item of list){
+      const current=map.get(item.label)||0;
+      map.set(item.label,current+item.value);
+    }
+  }
+  return Array.from(map.entries())
+    .map(([label,value])=>({label,value}))
+    .sort((a,b)=>b.value-a.value)
+    .slice(0,10);
+}
+
 // Sum SIGTAP section of tecnico files:
 // gather all SIGTAP codes in "Outros procedimentos (SIGTAP)" section, excluding a list
 function sumSIGTAPSection(rowSets, exclude){
@@ -403,6 +483,43 @@ function ns(...args){
 }
 function fmt(v){return v!==null&&v!==undefined?v.toLocaleString('pt-BR'):null;}
 
+function showCopyToast(text){
+  const toast=document.getElementById('copyToast');
+  if(!toast) return;
+  toast.textContent=text;
+  toast.classList.add('show');
+  clearTimeout(showCopyToast.timer);
+  showCopyToast.timer=setTimeout(()=>toast.classList.remove('show'),1400);
+}
+
+function copyText(text){
+  const clean=String(text||'').replace(/[^\d,.-]/g,'').trim();
+  if(!clean) return;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(clean).then(()=>showCopyToast(`Copiado: ${clean}`)).catch(()=>fallbackCopy(clean));
+  }else{
+    fallbackCopy(clean);
+  }
+}
+
+function fallbackCopy(text){
+  const ta=document.createElement('textarea');
+  ta.value=text;
+  ta.style.position='fixed';
+  ta.style.left='-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  showCopyToast(`Copiado: ${text}`);
+}
+
+document.addEventListener('click', e=>{
+  const target=e.target.closest('td.num,.rank-num');
+  if(!target) return;
+  copyText(target.textContent);
+});
+
 // ══════════════════════════════════════════════════════
 // TABLE BUILDERS
 // ══════════════════════════════════════════════════════
@@ -416,6 +533,21 @@ function tr(label, detail, val, isSub, isTot){
   return `<tr${isTot?' class="stot"':''}><td class="${lc}">${label}</td><td class="sub">${detail}</td>${nd}</tr>`;
 }
 function tg(label){return `<tr class="grp"><td colspan="3">${label}</td></tr>`;}
+
+function rankCard(title, items){
+  if(!items || !items.length){
+    return `<div class="disease-card"><h4>${title}</h4><div class="nf">Sem registros encontrados</div></div>`;
+  }
+  const max=Math.max(...items.map(i=>i.value),1);
+  return `<div class="disease-card"><h4>${title}</h4>${items.map(item=>{
+    const pct=Math.max(4,Math.round((item.value/max)*100));
+    return `<div class="rank-row">
+      <div class="rank-label">${item.label}</div>
+      <div class="rank-num">${fmt(item.value)}</div>
+      <div class="rank-bar"><div class="rank-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('')}</div>`;
+}
 
 // ══════════════════════════════════════════════════════
 // MAIN PROCESS
@@ -589,6 +721,35 @@ function processar(){
   t6+=tr('TOTAL','',vdTot,false,true);
   t6+='</tbody>';
   document.getElementById('tVisitas').innerHTML=t6;
+
+  // ══ 7. FAIXA ETÁRIA POR SEXO ══
+  const faixaProf = [
+    ['Médico', med],
+    ['Enfermeiro', enf],
+    ['Odontologia', den]
+  ];
+  const faixas = ['10 a 14 anos','15 a 19 anos'];
+  let t7='<thead><tr><th>Profissional</th><th>Faixa etária</th><th>Masculino</th><th>Feminino</th><th>Total</th></tr></thead><tbody>';
+  for(const [prof, rows] of faixaProf){
+    for(const faixa of faixas){
+      const v=ageSex(rows, faixa);
+      const totalCell=v.total===null?'<td class="nf">—</td>':`<td class="num tot">${fmt(v.total)}</td>`;
+      t7+=`<tr><td class="cat">${prof}</td><td class="sub">${faixa}</td><td class="num">${fmt(v.m)??'—'}</td><td class="num">${fmt(v.f)??'—'}</td>${totalCell}</tr>`;
+    }
+  }
+  t7+='</tbody>';
+  document.getElementById('tFaixaEtaria').innerHTML=t7;
+
+  // ══ 8. DOENÇAS MAIS ACOMETIDAS ══
+  const medTop=topDiseases(med,'Médico',8);
+  const enfTop=topDiseases(enf,'Enfermeiro',8);
+  const geralTop=mergeDiseaseRanking(medTop,enfTop);
+  document.getElementById('tDoencas').innerHTML=`
+    <div class="disease-grid">
+      ${rankCard('Médico', medTop)}
+      ${rankCard('Enfermeiro', enfTop)}
+      ${rankCard('Geral Médico + Enfermeiro', geralTop)}
+    </div>`;
 
   // ══ SUMMARY CARDS ══
   document.getElementById('cards').innerHTML=[
