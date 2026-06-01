@@ -514,10 +514,10 @@ function processar(){
   // Pressão Arterial: SIGTAP 0301100039 – todos os técnicos
   const pa = findAcross(tecs,'0301100039',1);
 
-  // Hemoglobina Glicada SOLICITADA: col 3 (índice 2)
-  // "Hemoglobina glicada" — médico col solicitada + enfermeiro col solicitada
-  const hbgMed = find(med,'Hemoglobina glicada',3);
-  const hbgEnf = find(enf,'Hemoglobina glicada',3);
+  // Hemoglobina Glicada SOLICITADA: col[2] = índice 2 = 'Quantidade Solicitada'
+  // Layout: ['Hemoglobina glicada', 'Qtd Avaliada', 'Qtd Solicitada', '']
+  const hbgMed = find(med,'Hemoglobina glicada',2);
+  const hbgEnf = find(enf,'Hemoglobina glicada',2);
   const hbg    = ns(hbgMed,hbgEnf);
 
   // Exames laboratoriais: soma col avaliada (2) de todos os exames principais + SIGTAP outros
@@ -543,8 +543,8 @@ function processar(){
   const ecgEnf = find(enf,'Eletrocardiograma',2);
   const ecgTot = ns(ecgMed,ecgEnf);
 
-  // Teste do Pezinho: col SOLICITADA(3)
-  const pez = find(enf,'Teste do pezinho',3);
+  // Teste do Pezinho: col[2] = 'Quantidade Solicitada'
+  const pez = find(enf,'Teste do pezinho',2);
 
   // Vacinas: "Registros identificados" de todos os arquivos de vacinas
   let vacTot=null;
