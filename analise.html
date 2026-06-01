@@ -80,8 +80,6 @@ table.pt tr:hover td{background:var(--gray-50)}
 table.pt td.cat{font-weight:600;color:var(--primary-dark)}
 table.pt td.sub{color:var(--gray-500);font-size:.84rem;padding-left:28px}
 table.pt td.num{font-weight:700;color:var(--primary);text-align:right;font-size:1.02rem}
-table.pt td.num,.rank-num{cursor:pointer;position:relative;user-select:none}
-table.pt td.num:hover,.rank-num:hover{filter:brightness(.85);text-decoration:underline;text-underline-offset:3px}
 table.pt td.num.tot{color:var(--accent);font-size:1.08rem}
 table.pt td.nf{color:#aaa;font-style:italic;text-align:right;font-size:.82rem}
 table.pt tr.grp td{background:var(--gray-50);font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-700);padding:8px 16px}
@@ -96,8 +94,6 @@ table.pt tr.stot td.num{color:var(--primary-dark)}
 .rank-num{font-weight:800;color:var(--primary)}
 .rank-bar{grid-column:1/-1;height:7px;background:var(--gray-200);border-radius:20px;overflow:hidden}
 .rank-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:20px}
-.copy-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,16px);background:var(--gray-900);color:#fff;border-radius:999px;padding:10px 18px;font-size:.88rem;font-weight:700;box-shadow:0 10px 28px rgba(15,23,42,.25);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:1000}
-.copy-toast.show{opacity:1;transform:translate(-50%,0)}
 
 .page-footer{text-align:center;color:var(--gray-500);font-size:.8rem;padding:20px 0 30px}
 @media print{.upload-section,.btn-pdf,.btn-c{display:none}body{background:#fff}}
@@ -155,6 +151,7 @@ table.pt tr.stot td.num{color:var(--primary-dark)}
     <div class="sec"><div class="sec-title green">🔬 Procedimentos e Exames</div><table class="pt" id="tProced"></table></div>
     <div class="sec"><div class="sec-title orange">🏠 Visitas Domiciliares</div><table class="pt" id="tVisitas"></table></div>
     <div class="sec"><div class="sec-title">👥 Faixa Etária por Sexo</div><table class="pt" id="tFaixaEtaria"></table></div>
+    <div class="sec" id="secACS"><div class="sec-title orange">🏘️ Resumo de Produção — ACS</div><table class="pt" id="tACS"></table></div>
     <div class="sec"><div class="sec-title green">📈 Doenças Mais Acometidas</div><div id="tDoencas"></div></div>
   </div>
 
@@ -162,7 +159,6 @@ table.pt tr.stot td.num{color:var(--primary-dark)}
     Relatório gerado automaticamente · e-SUS Atenção Primária &nbsp;·&nbsp; <span id="footerDate"></span>
   </div>
 </div>
-<div class="copy-toast" id="copyToast">Número copiado</div>
 
 <script>
 // ══════════════════════════════════════════════════════
@@ -170,7 +166,7 @@ table.pt tr.stot td.num{color:var(--primary-dark)}
 // ══════════════════════════════════════════════════════
 const loaded = {
   medico:null, enfermeiro:null, dentista:null,
-  tecnicos:[], vacinas:[],
+  tecnicos:[], vacinas:[], acs:[],
   fisio:null, nutri:null, psico:null
 };
 const pills = [];
@@ -214,6 +210,11 @@ function detectType(rows){
     const kl=k.toLowerCase();
     if(kl==='cbo') cbo=v.toLowerCase();
     if(kl==='profissional') profName=v.replace(/^\[.*?\]\s*-\s*/,'').trim();
+    // Handle format B: 'Profissional;[id_partial' split by comma → name in col[1] after "] - "
+    if(kl.startsWith('profissional;') && !profName){
+      const dashIdx=(v||'').indexOf('] - ');
+      profName = dashIdx>=0 ? v.slice(dashIdx+4).trim() : v.replace(/^.*\]\s*-?\s*/,'').trim();
+    }
     if(!v && k) headers.push(kl);
   }
   // raw6 is always the relatório description line
@@ -242,6 +243,8 @@ function detectType(rows){
     return {type:'nutri',     label:'🥗 Nutricionista',      name:profName};
   if(cbo.startsWith('251510')||cbo.includes('psicólogo')||cbo.includes('psicologo'))
     return {type:'psico',     label:'🧠 Psicólogo(a)',       name:profName};
+  if(cbo.startsWith('515105')||cbo.includes('agente comunitário')||cbo.includes('agente comunitario'))
+    return {type:'acs', label:'🏘️ ACS', name:profName};
   return {type:'unknown', label:'❓ Desconhecido', name:profName||'—'};
 }
 
@@ -249,6 +252,7 @@ function registerFile(fileName, info, rows){
   const {type,label,name}=info;
   if(type==='vacinas')      loaded.vacinas.push(rows);
   else if(type==='tecnico') loaded.tecnicos.push(rows);
+  else if(type==='acs')     loaded.acs.push(rows);
   else if(type!=='unknown') loaded[type]=rows;
   pills.push({fileName,type,label,name,status:type==='unknown'?'err':'ok'});
   renderPills();
@@ -273,7 +277,7 @@ function removeFile(i){
 
 function limpar(){
   loaded.medico=null;loaded.enfermeiro=null;loaded.dentista=null;
-  loaded.tecnicos=[];loaded.vacinas=[];
+  loaded.tecnicos=[];loaded.vacinas=[];loaded.acs=[];
   loaded.fisio=null;loaded.nutri=null;loaded.psico=null;
   pills.length=0;renderPills();
   document.getElementById('resultado').style.display='none';
@@ -482,43 +486,6 @@ function ns(...args){
   return vals.reduce((a,b)=>a+b,0);
 }
 function fmt(v){return v!==null&&v!==undefined?v.toLocaleString('pt-BR'):null;}
-
-function showCopyToast(text){
-  const toast=document.getElementById('copyToast');
-  if(!toast) return;
-  toast.textContent=text;
-  toast.classList.add('show');
-  clearTimeout(showCopyToast.timer);
-  showCopyToast.timer=setTimeout(()=>toast.classList.remove('show'),1400);
-}
-
-function copyText(text){
-  const clean=String(text||'').replace(/[^\d,.-]/g,'').trim();
-  if(!clean) return;
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(clean).then(()=>showCopyToast(`Copiado: ${clean}`)).catch(()=>fallbackCopy(clean));
-  }else{
-    fallbackCopy(clean);
-  }
-}
-
-function fallbackCopy(text){
-  const ta=document.createElement('textarea');
-  ta.value=text;
-  ta.style.position='fixed';
-  ta.style.left='-9999px';
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand('copy');
-  document.body.removeChild(ta);
-  showCopyToast(`Copiado: ${text}`);
-}
-
-document.addEventListener('click', e=>{
-  const target=e.target.closest('td.num,.rank-num');
-  if(!target) return;
-  copyText(target.textContent);
-});
 
 // ══════════════════════════════════════════════════════
 // TABLE BUILDERS
@@ -739,6 +706,51 @@ function processar(){
   }
   t7+='</tbody>';
   document.getElementById('tFaixaEtaria').innerHTML=t7;
+
+  // ══ 7b. RESUMO ACS ══
+  const acsRows = loaded.acs;
+  if(acsRows.length > 0){
+    let tACS = th(['ACS','Registros Identificados','Não Identificados']);
+    let totalIdent=0, totalNaoIdent=0;
+    for(const rows of acsRows){
+      // Get name from Profissional row — handles both formats:
+      // Format A: ['Profissional','[id] - Nome']  → col[1] has full name
+      // Format B: ['Profissional;[id_partial','id_end] - Nome']  → name is in col[1] after "] -"
+      let acsName = '—';
+      for(const r of rows){
+        const k = (r[0]||'').toLowerCase().trim();
+        // Format A: key is exactly 'profissional'
+        if(k==='profissional'){
+          acsName = (r[1]||'').replace(/^\[.*?\]\s*-\s*/,'').trim();
+          break;
+        }
+        // Format B: key starts with 'profissional;' (comma-split left the ; in col[0])
+        if(k.startsWith('profissional;')){
+          // Name is in col[1] after "] - "
+          const raw = (r[1]||'');
+          const dashIdx = raw.indexOf('] - ');
+          acsName = dashIdx >= 0 ? raw.slice(dashIdx+4).trim() : raw.replace(/^.*\]\s*-?\s*/,'').trim();
+          break;
+        }
+      }
+      const ident    = find(rows,'Registros identificados',1);
+      const naoIdent = find(rows,'Registros não identificados',1);
+      if(ident!==null)    totalIdent    += ident;
+      if(naoIdent!==null) totalNaoIdent += naoIdent;
+      const niCell = naoIdent===null ? `<td class="nf">—</td>` : `<td class="num">${fmt(naoIdent)}</td>`;
+      tACS += `<tr><td class="cat">${acsName}</td><td class="num">${ident!==null?fmt(ident):'—'}</td>${niCell}</tr>`;
+    }
+    // Total row
+    tACS += `<tr class="stot"><td class="cat">TOTAL</td><td class="num tot">${fmt(totalIdent)}</td><td class="num tot">${fmt(totalNaoIdent)}</td></tr>`;
+    tACS += '</tbody>';
+    const acsTableEl = document.getElementById('tACS');
+    if(acsTableEl) acsTableEl.innerHTML = tACS;
+    const secACS = document.getElementById('secACS');
+    if(secACS) secACS.style.display='';
+  } else {
+    const secACSEl = document.getElementById('secACS');
+    if(secACSEl) secACSEl.style.display='none';
+  }
 
   // ══ 8. DOENÇAS MAIS ACOMETIDAS ══
   const medTop=topDiseases(med,'Médico',8);
