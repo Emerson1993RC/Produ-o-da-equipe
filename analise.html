@@ -73,13 +73,13 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--gray-100);color:var
 .sec-title.green{background:var(--accent)}.sec-title.orange{background:var(--warn)}
 
 table.pt{width:100%;border-collapse:collapse}
-table.pt th{background:var(--primary-light);color:var(--primary-dark);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:9px 16px;text-align:left;border-bottom:2px solid var(--gray-200)}.pt th:last-child{text-align:right;width:90px}
+table.pt th{background:var(--primary-light);color:var(--primary-dark);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:9px 16px;text-align:left;border-bottom:2px solid var(--gray-200)}.pt th:nth-child(3){text-align:right;width:120px;min-width:120px}.pt th:last-child{text-align:right}
 table.pt td{padding:10px 16px;font-size:.9rem;border-bottom:1px solid var(--gray-100);color:var(--gray-700)}
 table.pt tr:last-child td{border-bottom:none}
 table.pt tr:hover td{background:var(--gray-50)}
 table.pt td.cat{font-weight:600;color:var(--primary-dark)}
 table.pt td.sub{color:var(--gray-500);font-size:.84rem;padding-left:28px}
-table.pt td.num{font-weight:700;color:var(--primary);text-align:right;font-size:1.02rem;width:90px;min-width:90px;white-space:nowrap}
+table.pt td.num{font-weight:700;color:var(--primary);text-align:right;font-size:1.02rem;width:120px;min-width:120px;white-space:nowrap}
 table.pt td.num.tot{color:var(--accent);font-size:1.08rem}
 table.pt td.nf{color:#aaa;font-style:italic;text-align:right;font-size:.82rem}
 table.pt tr.grp td{background:var(--gray-50);font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-700);padding:8px 16px}
@@ -167,7 +167,7 @@ table.pt tr.stot td.num{color:var(--primary-dark)}
   </div>
 
   <div class="page-footer">
-    Relatório gerado automaticamente · Projeto&nbsp;·&nbsp; <span id="footerDate"></span> &nbsp;·&nbsp; Por <strong>Emerson Rodrigues Cardoso</strong>
+    Relatório gerado automaticamente · 03/06/2026 Por Emerson Rodrigues Cardoso
   </div>
 </div>
 
@@ -261,12 +261,14 @@ function detectType(rows){
 
 function registerFile(fileName, info, rows){
   const {type,label,name}=info;
+  const pill = {fileName,type,label,name,rows,status:type==='unknown'?'err':'ok'};
   if(type==='vacinas')      loaded.vacinas.push(rows);
   else if(type==='tecnico') loaded.tecnicos.push(rows);
   else if(type==='acs')     loaded.acs.push(rows);
   else if(type!=='unknown') loaded[type]=rows;
-  pills.push({fileName,type,label,name,status:type==='unknown'?'err':'ok'});
+  pills.push(pill);
   renderPills();
+  if(pills.some(p=>p.status==='ok')) processar();
 }
 
 function renderPills(){
@@ -284,11 +286,18 @@ function renderPills(){
 
 function removeFile(i){
   const p=pills[i];
-  if(p.type==='vacinas') loaded.vacinas.splice(0,1);
-  else if(p.type==='tecnico') loaded.tecnicos.splice(0,1);
+  if(p.type==='vacinas')      loaded.vacinas.splice(loaded.vacinas.indexOf(p.rows),1);
+  else if(p.type==='tecnico') loaded.tecnicos.splice(loaded.tecnicos.indexOf(p.rows),1);
+  else if(p.type==='acs')     loaded.acs.splice(loaded.acs.indexOf(p.rows),1);
   else if(p.type!=='unknown') loaded[p.type]=null;
   pills.splice(i,1);
   renderPills();
+  if(pills.some(p=>p.status==='ok')) processar();
+  else {
+    document.getElementById('resultado').style.display='none';
+    document.getElementById('emptyState').style.display='block';
+    document.getElementById('btnPDF').style.display='none';
+  }
 }
 
 function limpar(){
@@ -618,16 +627,16 @@ function processar(){
   const dmT90Enf  = find(enf,'T90',1);
   const dmTot     = ns(dmMed,dmT90Enf);
 
-  let t3=th(['Grupo','Detalhe','Qtd']);
-  t3+=tg('HAS – Hipertensão Arterial Sistêmica');
-  t3+=tr('Médico',    'K86 (CIAP2) + I10 (CID10)', hasMed, true,false);
-  t3+=tr('Enfermeiro','K86 (CIAP2)',                hasEnf, true,false);
-  t3+=tr('Subtotal HAS','',hasTot,false,true);
-  t3+=tg('DM – Diabetes Mellitus');
-  t3+=tr('Médico',    'T90 (CIAP2) + E11 (CID10)', dmMed,  true,false);
-  t3+=tr('Enfermeiro','T90 (CIAP2)',                dmT90Enf,true,false);
-  t3+=tr('Subtotal DM','',dmTot,false,true);
-  t3+=tr('TOTAL CRÔNICOS','',ns(hasTot,dmTot),false,true);
+  let t3='<thead><tr><th>Grupo</th><th>Qtd</th></tr></thead><tbody>';
+  t3+='<tr class="grp"><td colspan="2">HAS – Hipertensão Arterial Sistêmica</td></tr>';
+  t3+=`<tr><td class="sub">Médico</td><td class="num">${fmt(hasMed)??'—'}</td></tr>`;
+  t3+=`<tr><td class="sub">Enfermeiro</td><td class="num">${fmt(hasEnf)??'—'}</td></tr>`;
+  t3+=`<tr class="stot"><td class="cat">Subtotal HAS</td><td class="num tot">${fmt(hasTot)??'—'}</td></tr>`;
+  t3+='<tr class="grp"><td colspan="2">DM – Diabetes Mellitus</td></tr>';
+  t3+=`<tr><td class="sub">Médico</td><td class="num">${fmt(dmMed)??'—'}</td></tr>`;
+  t3+=`<tr><td class="sub">Enfermeiro</td><td class="num">${fmt(dmT90Enf)??'—'}</td></tr>`;
+  t3+=`<tr class="stot"><td class="cat">Subtotal DM</td><td class="num tot">${fmt(dmTot)??'—'}</td></tr>`;
+  t3+=`<tr class="stot"><td class="cat">TOTAL CRÔNICOS</td><td class="num tot">${fmt(ns(hasTot,dmTot))??'—'}</td></tr>`;
   t3+='</tbody>';
   document.getElementById('tCronicos').innerHTML=t3;
 
