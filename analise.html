@@ -73,13 +73,13 @@ body{font-family:'Source Sans 3',sans-serif;background:var(--gray-100);color:var
 .sec-title.green{background:var(--accent)}.sec-title.orange{background:var(--warn)}
 
 table.pt{width:100%;border-collapse:collapse}
-table.pt th{background:var(--primary-light);color:var(--primary-dark);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:9px 16px;text-align:left;border-bottom:2px solid var(--gray-200)}
+table.pt th{background:var(--primary-light);color:var(--primary-dark);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:9px 16px;text-align:left;border-bottom:2px solid var(--gray-200)}.pt th:last-child{text-align:right;width:90px}
 table.pt td{padding:10px 16px;font-size:.9rem;border-bottom:1px solid var(--gray-100);color:var(--gray-700)}
 table.pt tr:last-child td{border-bottom:none}
 table.pt tr:hover td{background:var(--gray-50)}
 table.pt td.cat{font-weight:600;color:var(--primary-dark)}
 table.pt td.sub{color:var(--gray-500);font-size:.84rem;padding-left:28px}
-table.pt td.num{font-weight:700;color:var(--primary);text-align:right;font-size:1.02rem}
+table.pt td.num{font-weight:700;color:var(--primary);text-align:right;font-size:1.02rem;width:90px;min-width:90px;white-space:nowrap}
 table.pt td.num.tot{color:var(--accent);font-size:1.08rem}
 table.pt td.nf{color:#aaa;font-style:italic;text-align:right;font-size:.82rem}
 table.pt tr.grp td{background:var(--gray-50);font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-700);padding:8px 16px}
@@ -97,10 +97,21 @@ table.pt tr.stot td.num{color:var(--primary-dark)}
 
 .page-footer{text-align:center;color:var(--gray-500);font-size:.8rem;padding:20px 0 30px}
 @media print{.upload-section,.btn-pdf,.btn-c{display:none}body{background:#fff}}
+.num-copy{cursor:pointer;position:relative;transition:color .15s}
+.num-copy:hover{color:var(--accent)!important;text-decoration:underline dotted}
+.num-copy:active{transform:scale(.94)}
+#copy-toast{
+  position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--gray-900);color:#fff;padding:8px 20px;border-radius:20px;
+  font-size:.82rem;font-weight:600;opacity:0;transition:opacity .25s,transform .25s;
+  pointer-events:none;z-index:9999;
+}
+#copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 
+<div id="copy-toast">📋 Copiado!</div>
 <header class="site-header">
   <div class="header-icons">🏥 📋</div>
   <div class="header-text">
@@ -156,7 +167,7 @@ table.pt tr.stot td.num{color:var(--primary-dark)}
   </div>
 
   <div class="page-footer">
-    Relatório gerado automaticamente · e-SUS Atenção Primária &nbsp;·&nbsp; <span id="footerDate"></span>
+    Relatório gerado automaticamente · Projeto Por Emerson Rodrigues Cardoso &nbsp;·&nbsp; <span id="footerDate"></span> &nbsp;·&nbsp; Por <strong>Emerson Rodrigues Cardoso</strong>
   </div>
 </div>
 
@@ -259,11 +270,16 @@ function registerFile(fileName, info, rows){
 }
 
 function renderPills(){
-  document.getElementById('fileList').innerHTML=pills.map((p,i)=>`
-    <div class="fp ${p.status}">
-      ${p.label.split(' ')[0]} ${p.label.replace(/^.\s/,'')} — <em>${p.name||'—'}</em>
+  document.getElementById('fileList').innerHTML=pills.map((p,i)=>{
+    // Split label into icon and text reliably using the space after the emoji sequence
+    const spaceIdx = p.label.indexOf(' ');
+    const icon = spaceIdx>=0 ? p.label.slice(0,spaceIdx) : '';
+    const text = spaceIdx>=0 ? p.label.slice(spaceIdx+1) : p.label;
+    return `<div class="fp ${p.status}">
+      <span class="fp-icon">${icon}</span><span class="fp-text">${text}</span> — <em>${p.name||'—'}</em>
       <span class="fp-rm" onclick="removeFile(${i})">✕</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function removeFile(i){
@@ -485,7 +501,28 @@ function ns(...args){
   if(!vals.length) return null;
   return vals.reduce((a,b)=>a+b,0);
 }
-function fmt(v){return v!==null&&v!==undefined?v.toLocaleString('pt-BR'):null;}
+function fmt(v){
+  if(v===null||v===undefined) return null;
+  const display = v.toLocaleString('pt-BR');
+  return `<span class="num-copy" onclick="copyNum('${display}')" title="Clique para copiar">${display}</span>`;
+}
+let _copyTimer=null;
+function copyNum(txt){
+  // Strip HTML tags if any, get plain number
+  const plain = txt.replace(/<[^>]+>/g,'');
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(plain).catch(()=>{});
+  } else {
+    const ta=document.createElement('textarea');
+    ta.value=plain; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  }
+  const toast=document.getElementById('copy-toast');
+  toast.textContent='📋 '+plain+' copiado!';
+  toast.classList.add('show');
+  clearTimeout(_copyTimer);
+  _copyTimer=setTimeout(()=>toast.classList.remove('show'),2000);
+}
 
 // ══════════════════════════════════════════════════════
 // TABLE BUILDERS
