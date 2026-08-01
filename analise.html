@@ -213,7 +213,6 @@ function handleFiles(list){
 // ══════════════════════════════════════════════════════
 function detectType(rows){
   let cbo='', profName='';
-  // Collect all section-header lines (no col[1]) to detect relatório type
   const headers = [];
   for(let i=0;i<Math.min(20,rows.length);i++){
     const k=(rows[i][0]||'').trim();
@@ -221,25 +220,20 @@ function detectType(rows){
     const kl=k.toLowerCase();
     if(kl==='cbo') cbo=v.toLowerCase();
     if(kl==='profissional') profName=v.replace(/^\[.*?\]\s*-\s*/,'').trim();
-    // Handle format B: 'Profissional;[id_partial' split by comma → name in col[1] after "] - "
     if(kl.startsWith('profissional;') && !profName){
       const dashIdx=(v||'').indexOf('] - ');
       profName = dashIdx>=0 ? v.slice(dashIdx+4).trim() : v.replace(/^.*\]\s*-?\s*/,'').trim();
     }
     if(!v && k) headers.push(kl);
   }
-  // raw6 is always the relatório description line
   const raw6=(rows[6]&&rows[6][0]?rows[6][0]:'').toLowerCase().trim();
   headers.push(raw6);
   const anyH = headers.join(' ');
 
   if(anyH.includes('vacinação')||anyH.includes('vacinacao'))
     return {type:'vacinas',   label:'💊 Vacinas',           name:profName||'Vacinação'};
-  if(anyH.includes('procedimentos individualizados'))
-    return {type:'tecnico',   label:'🩹 Téc. Enfermagem',   name:profName};
   if(anyH.includes('odontológico')||anyH.includes('odontologico'))
     return {type:'dentista',  label:'🦷 Odontologia',        name:profName};
-  // CBO-based (works for both formats after parser fix)
   if(cbo.startsWith('225')||cbo.includes('médico')||cbo.includes('medico'))
     return {type:'medico',    label:'🩺 Médico',             name:profName};
   if(cbo.startsWith('223565')||(cbo.includes('enfermeiro')&&!cbo.includes('técnico')&&!cbo.includes('tecnico')))
@@ -256,6 +250,9 @@ function detectType(rows){
     return {type:'psico',     label:'🧠 Psicólogo(a)',       name:profName};
   if(cbo.startsWith('515105')||cbo.includes('agente comunitário')||cbo.includes('agente comunitario'))
     return {type:'acs', label:'🏘️ ACS', name:profName};
+  // Fallback
+  if(anyH.includes('procedimentos individualizados'))
+    return {type:'tecnico',   label:'🩹 Téc. Enfermagem',   name:profName};
   return {type:'unknown', label:'❓ Desconhecido', name:profName||'—'};
 }
 
@@ -264,7 +261,14 @@ function registerFile(fileName, info, rows){
   if(type==='vacinas')      loaded.vacinas.push(rows);
   else if(type==='tecnico') loaded.tecnicos.push(rows);
   else if(type==='acs')     loaded.acs.push(rows);
-  else if(type!=='unknown') loaded[type]=rows;
+  else if(type!=='unknown') {
+    // Concatena os dados caso já exista arquivo anterior do mesmo profissional
+    if (!loaded[type]) {
+      loaded[type] = rows;
+    } else {
+      loaded[type] = loaded[type].concat(rows);
+    }
+  }
   pills.push({fileName,type,label,name,status:type==='unknown'?'err':'ok'});
   renderPills();
 }
@@ -299,21 +303,15 @@ function limpar(){
 
 // ══════════════════════════════════════════════════════
 // CSV PARSER
-// e-SUS exports two formats:
-//   Format A (técnicos/vacinas): real sep = ;  rows split normally
-//   Format B (médico/enf/etc):   real sep = ,  but data rows are "Key;Value" in col[0]
-//   We detect Format B and re-split col[0] by ; to recover key/value pairs
 // ══════════════════════════════════════════════════════
 function parseCSV(text){
   if(!text) return [];
   const lines = text.split('\n');
   const first = lines[0] || '';
-  // Format A has multiple semicolons as actual field delimiters
   const isSemiFormat = (first.split(';').length > 2);
   const sep = isSemiFormat ? ';' : ',';
   return lines.map(line => {
     const parts = line.split(sep).map(c => c.trim());
-    // Format B: "Key;Value" is packed in parts[0], parts[1] is empty
     if (!isSemiFormat && parts[0] && parts[0].includes(';') && (!parts[1] || parts[1]==='')) {
       return parts[0].split(';').map(c => c.trim());
     }
@@ -323,9 +321,6 @@ function parseCSV(text){
 
 // ══════════════════════════════════════════════════════
 // UNIVERSAL SEARCH ENGINE
-// Searches all rows for the first cell that STARTS WITH the given key (case-insensitive)
-// Returns integer value from colIdx (B=1, C=2)
-// This handles CIAP codes like "W78 - GRAVIDEZ", SIGTAP codes, descriptions
 // ══════════════════════════════════════════════════════
 function find(rows, key, colIdx){
   if(!rows||!rows.length) return null;
@@ -335,7 +330,6 @@ function find(rows, key, colIdx){
     const c0=(r[0]||'').trim();
     const c0u=c0.toUpperCase();
     const c0l=c0.toLowerCase();
-    // Match: exact OR starts with key + space/dash/nothing
     if(c0u===ku || c0l===kl ||
        c0u.startsWith(ku+' ') || c0u.startsWith(ku+'-') || c0u.startsWith(ku+'–') ||
        c0l.startsWith(kl+' ') || c0l.startsWith(kl+'-')){
@@ -347,7 +341,6 @@ function find(rows, key, colIdx){
   return null;
 }
 
-// Sum multiple keys from same rows
 function findSum(rows, keys, colIdx){
   let total=0, found=false;
   for(const k of keys){
@@ -357,7 +350,6 @@ function findSum(rows, keys, colIdx){
   return found?total:null;
 }
 
-// Sum same key across multiple row sets (e.g. all tecnicos)
 function findAcross(rowSets, key, colIdx){
   let total=0, found=false;
   for(const rows of rowSets){
@@ -367,17 +359,6 @@ function findAcross(rowSets, key, colIdx){
   return found?total:null;
 }
 
-// Sum multiple keys across multiple row sets
-function findSumAcross(rowSets, keys, colIdx){
-  let total=0, found=false;
-  for(const rows of rowSets){
-    const v=findSum(rows,keys,colIdx);
-    if(v!==null){total+=v;found=true;}
-  }
-  return found?total:null;
-}
-
-// Faixa etária table rows use: Descrição;Masculino;Feminino;Indeterminado;Não informado
 function ageSex(rows, faixa){
   if(!rows||!rows.length) return {m:null,f:null,total:null};
   const key=faixa.toLowerCase();
@@ -441,8 +422,6 @@ function mergeDiseaseRanking(...lists){
     .slice(0,10);
 }
 
-// Sum SIGTAP section of tecnico files:
-// gather all SIGTAP codes in "Outros procedimentos (SIGTAP)" section, excluding a list
 function sumSIGTAPSection(rowSets, exclude){
   let total=0, found=false;
   const excl=(exclude||[]).map(e=>e.toUpperCase());
@@ -459,7 +438,6 @@ function sumSIGTAPSection(rowSets, exclude){
           const v=parseInt((r[1]||'').replace(/[\s.]/g,''));
           if(!isNaN(v)&&v>0){total+=v;found=true;}
         }
-        // Stop at next non-SIGTAP section
         if(!c0.match(/^\d{10}/)&&r[1]===undefined) inSec=false;
       }
     }
@@ -467,7 +445,6 @@ function sumSIGTAPSection(rowSets, exclude){
   return found?total:null;
 }
 
-// Sum consultas standard sections
 function sumConsultas(rows){
   return findSum(rows,[
     'Consulta agendada',
@@ -477,7 +454,6 @@ function sumConsultas(rows){
   ],1);
 }
 
-// Get period / equipe from first non-null rows
 function getMeta(key, ...rowSets){
   for(const rows of rowSets){
     if(!rows||!rows.length) continue;
@@ -490,7 +466,6 @@ function getMeta(key, ...rowSets){
   return '—';
 }
 
-// Null-safe sum
 function ns(...args){
   const vals=args.filter(v=>v!==null&&v!==undefined);
   if(!vals.length) return null;
@@ -519,9 +494,6 @@ function copyNum(txt){
   _copyTimer=setTimeout(()=>toast.classList.remove('show'),2000);
 }
 
-// ══════════════════════════════════════════════════════
-// TABLE BUILDERS
-// ══════════════════════════════════════════════════════
 function th(cols){
   return `<thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>`;
 }
@@ -556,18 +528,16 @@ function processar(){
   const tecs=loaded.tecnicos, vacs=loaded.vacinas;
   const fisio=loaded.fisio, nutri=loaded.nutri, psico=loaded.psico;
 
-  // Meta
   document.getElementById('periodoTexto').textContent=getMeta('Período',med,enf,den,fisio,nutri,psico,...tecs);
   document.getElementById('equipeTexto').textContent=getMeta('Equipe',med,enf,den);
 
   // ══ 1. CONSULTAS ══
-  // B23 = "Registros identificados" col 1 = total atendimentos
-  const cMed  = find(med,  'Registros identificados', 1);
-  const cEnf  = find(enf,  'Registros identificados', 1);
-  const cDen  = find(den,  'Registros identificados', 1);
-  const cFis  = find(fisio,'Registros identificados', 1);
-  const cNut  = find(nutri,'Registros identificados', 1);
-  const cPsi  = find(psico,'Registros identificados', 1);
+  const cMed  = sumConsultas(med) ?? find(med,  'Registros identificados', 1);
+  const cEnf  = sumConsultas(enf) ?? find(enf,  'Registros identificados', 1);
+  const cDen  = sumConsultas(den) ?? find(den,  'Registros identificados', 1);
+  const cFis  = sumConsultas(fisio) ?? find(fisio,'Registros identificados', 1);
+  const cNut  = sumConsultas(nutri) ?? find(nutri,'Registros identificados', 1);
+  const cPsi  = sumConsultas(psico) ?? find(psico,'Registros identificados', 1);
   const cTotal= ns(cMed,cEnf,cDen,cFis,cNut,cPsi);
 
   let t1=th(['Profissional','Detalhe','Qtd']);
@@ -582,9 +552,6 @@ function processar(){
   document.getElementById('tConsultas').innerHTML=t1;
 
   // ══ 2. PRÉ-NATAL ══
-  // Médico:    W78 (Gravidez) col 1 — CIAP
-  // Enfermeiro: W78 col 1
-  // Odontologia: "Gestante" col 1
   const pnMed = find(med, 'W78', 1);
   const pnEnf = find(enf, 'W78', 1);
   const pnDen = find(den, 'Gestante', 1);
@@ -599,8 +566,6 @@ function processar(){
   document.getElementById('tPreNatal').innerHTML=t2;
 
   // ══ 3. CRÔNICOS ══
-  // HAS: K86 (CIAP2) — médico e enfermeiro; + I10 (CID10) no médico
-  // DM:  T90 (CIAP2 DM não-insulino) — médico e enfermeiro; + E11 (CID10 DM tipo2) no médico
   const hasK86Med = find(med,'K86',1);
   const hasI10Med = find(med,'I10',1);
   const hasMed    = ns(hasK86Med, hasI10Med);
@@ -627,7 +592,6 @@ function processar(){
   document.getElementById('tCronicos').innerHTML=t3;
 
   // ══ 4. PUERICULTURA ══
-  // ABP004 (CIAP2) — médico e enfermeiro
   const puMed = find(med,'ABP004',1);
   const puEnf = find(enf,'ABP004',1);
   const puTot = ns(puMed,puEnf);
@@ -642,50 +606,54 @@ function processar(){
   // ══ 5. PROCEDIMENTOS E EXAMES ══
   const nTec=tecs.length, nVac=vacs.length;
 
-  // Pressão Arterial: SIGTAP 0301100039 – todos os técnicos
   const pa = findAcross(tecs,'0301100039',1);
 
-  // Hemoglobina Glicada SOLICITADA: col[2] = índice 2 = 'Quantidade Solicitada'
-  // Layout: ['Hemoglobina glicada', 'Qtd Avaliada', 'Qtd Solicitada', '']
-  const hbgMed = find(med,'Hemoglobina glicada',2);
-  const hbgEnf = find(enf,'Hemoglobina glicada',2);
+  const hbgMed = find(med,'Dosagem de hemoglobina glicosilada',2);
+  const hbgEnf = find(enf,'Dosagem de hemoglobina glicosilada',2);
   const hbg    = ns(hbgMed,hbgEnf);
 
-  // Exames laboratoriais: soma col avaliada (2) de todos os exames principais + SIGTAP outros
-  // Médico: soma exames padrão col 2 + SIGTAP col 2
-  const labKeys=['Colesterol total','Creatinina','EAS / EQU','Glicemia','HDL','Hemoglobina glicada','Hemograma','LDL','Urocultura'];
-  const labMedStd  = findSum(med, labKeys, 2);
-  const labEnfStd  = findSum(enf, labKeys, 2);
-  // SIGTAP outros exames col avaliada(2): 0202xxxxxx codes
-  const labMedSIGTAP = sumSIGTAPByPrefix(med,'0202',2);
-  const labEnfSIGTAP = sumSIGTAPByPrefix(enf,'0202',2);
+  const labKeys=[
+    'Dosagem de colesterol total',
+    'Dosagem de creatinina',
+    'Análise de caracteres físicos, elementos e sedimento da urina',
+    'Dosagem de colesterol HDL',
+    'Dosagem de hemoglobina glicosilada',
+    'Hemograma completo',
+    'Dosagem de colesterol LDL'
+  ];
+  const labMedStd  = findSum(med, labKeys, 1);
+  const labEnfStd  = findSum(enf, labKeys, 1);
+  
+  const labMedSIGTAP = sumSIGTAPByPrefix(med,'0202',1);
+  const labEnfSIGTAP = sumSIGTAPByPrefix(enf,'0202',1);
   const labTot = ns(labMedStd,labEnfStd,labMedSIGTAP,labEnfSIGTAP);
 
-  // Ultrassonografias: col avaliada(2)
   const usgKeys=['Ultrassonografia obstétrica'];
-  const usgMedStd = findSum(med,usgKeys,2);
-  const usgEnfStd = findSum(enf,usgKeys,2);
-  const usgMedSIGTAP = sumSIGTAPByPrefix(med,'020502',2);
-  const usgEnfSIGTAP = sumSIGTAPByPrefix(enf,'020502',2);
+  const usgMedStd = findSum(med,usgKeys,1);
+  const usgEnfStd = findSum(enf,usgKeys,1);
+  const usgMedSIGTAP = sumSIGTAPByPrefix(med,'020502',1);
+  const usgEnfSIGTAP = sumSIGTAPByPrefix(enf,'020502',1);
   const usgTot = ns(usgMedStd,usgEnfStd,usgMedSIGTAP,usgEnfSIGTAP);
 
-  // ECG: col avaliada(2)
-  const ecgMed = find(med,'Eletrocardiograma',2);
-  const ecgEnf = find(enf,'Eletrocardiograma',2);
+  const ecgMed = find(med,'Eletrocardiograma',1);
+  const ecgEnf = find(enf,'Eletrocardiograma',1);
   const ecgTot = ns(ecgMed,ecgEnf);
 
-  // Teste do Pezinho: busca dinâmica pela descrição e lê a coluna B (Quantidade Avaliada)
-  const pez = find(enf,'Teste do pezinho',1);
+  // Teste do Pezinho: Apenas Técnicos (SIGTAP 0201020050)
+  let pezTec = null;
+  for(const rows of tecs){
+    const v = sumSIGTAPByPrefix(rows,'0201020050',1);
+    if(v!==null) pezTec = (pezTec||0)+v;
+  }
+  const pez = pezTec;
 
-  // Vacinas: "Registros identificados" de todos os arquivos de vacinas
   let vacTot=null;
   for(const rows of vacs){
     const v=find(rows,'Registros identificados',1);
     if(v!==null) vacTot=(vacTot||0)+v;
   }
 
-  // Proc. Ambulatoriais: todos SIGTAP dos técnicos exceto visita domiciliar
-  const procAmb = sumSIGTAPSection(tecs,['0101030010']);
+  const procAmb = sumSIGTAPSection(tecs,['0101030010','0201020050']);
 
   let t5=th(['Indicador','Detalhe','Qtd']);
   t5+=tr('Pressão Arterial',          `SIGTAP 0301100039 · ${nTec} técnico(s)`,            pa,      false,false);
@@ -693,22 +661,25 @@ function processar(){
   t5+=tr('Exames Laboratoriais',      'Médico + Enfermeiro – exames padrão + SIGTAP 0202xx (avaliados)',labTot,false,false);
   t5+=tr('Ultrassonografias',         'Médico + Enfermeiro – USG obstétrica + SIGTAP 020502xx (avaliadas)',usgTot,false,false);
   t5+=tr('ECG',                       'Médico + Enfermeiro – col Quantidade Avaliada',      ecgTot,  false,false);
-  t5+=tr('Teste do Pezinho',          'Enfermeiro – busca por descrição, col Quantidade Avaliada',pez,false,false);
+  t5+=tr('Teste do Pezinho',          'Técnicos (SIGTAP 0201020050)',                       pez,     false,false);
   t5+=tr('Vacinas',                   `Registros identificados · ${nVac} vacinador(es)`,    vacTot,  false,false);
-  t5+=tr('Proc. Ambulatoriais',       `Todos SIGTAP dos técnicos (exceto visita dom.) · ${nTec} técnico(s)`,procAmb,false,false);
+  t5+=tr('Proc. Ambulatoriais',       `Todos SIGTAP dos técnicos (exceto visita dom. e pezinho) · ${nTec} técnico(s)`,procAmb,false,false);
   t5+='</tbody>';
   document.getElementById('tProced').innerHTML=t5;
 
   // ══ 6. VISITAS DOMICILIARES ══
-  // Médico/Enfermeiro/outros: "Domicílio" no local de atendimento col 1
-  // Técnico: SIGTAP 0101030010 col 1 – soma todos
   const vdMed  = find(med,  'Domicílio',1);
   const vdEnf  = find(enf,  'Domicílio',1);
   const vdFis  = find(fisio,'Domicílio',1);
   const vdNut  = find(nutri,'Domicílio',1);
   const vdPsi  = find(psico,'Domicílio',1);
   const vdTec  = findAcross(tecs,'0101030010',1);
-  const vdTot  = ns(vdMed,vdEnf,vdFis,vdNut,vdPsi,vdTec);
+  let vdAcs = null;
+  for(const rows of loaded.acs){
+    const v = find(rows,'Registros identificados',1);
+    if(v!==null) vdAcs = (vdAcs||0)+v;
+  }
+  const vdTot  = ns(vdMed,vdEnf,vdFis,vdNut,vdPsi,vdTec,vdAcs);
 
   let t6=th(['Profissional','Detalhe','Qtd']);
   t6+=tr('Médico',     'Domicílio – Local de atendimento',        vdMed, false,false);
@@ -717,6 +688,7 @@ function processar(){
   if(vdNut!==null) t6+=tr('Nutricionista', 'Domicílio – Local de atendimento',vdNut,false,false);
   if(vdPsi!==null) t6+=tr('Psicólogo(a)',  'Domicílio – Local de atendimento',vdPsi,false,false);
   t6+=tr(`Téc. Enfermagem (${nTec})`, 'SIGTAP 0101030010 – soma todos os técnicos', vdTec,false,false);
+  if(vdAcs!==null) t6+=tr(`ACS (${loaded.acs.length})`, 'Registros identificados – soma todos os agentes', vdAcs,false,false);
   t6+=tr('TOTAL','',vdTot,false,true);
   t6+='</tbody>';
   document.getElementById('tVisitas').innerHTML=t6;
@@ -745,20 +717,14 @@ function processar(){
     let tACS = th(['ACS','Registros Identificados','Não Identificados']);
     let totalIdent=0, totalNaoIdent=0;
     for(const rows of acsRows){
-      // Get name from Profissional row — handles both formats:
-      // Format A: ['Profissional','[id] - Nome']  → col[1] has full name
-      // Format B: ['Profissional;[id_partial','id_end] - Nome']  → name is in col[1] after "] -"
       let acsName = '—';
       for(const r of rows){
         const k = (r[0]||'').toLowerCase().trim();
-        // Format A: key is exactly 'profissional'
         if(k==='profissional'){
           acsName = (r[1]||'').replace(/^\[.*?\]\s*-\s*/,'').trim();
           break;
         }
-        // Format B: key starts with 'profissional;' (comma-split left the ; in col[0])
         if(k.startsWith('profissional;')){
-          // Name is in col[1] after "] - "
           const raw = (r[1]||'');
           const dashIdx = raw.indexOf('] - ');
           acsName = dashIdx >= 0 ? raw.slice(dashIdx+4).trim() : raw.replace(/^.*\]\s*-?\s*/,'').trim();
@@ -772,7 +738,6 @@ function processar(){
       const niCell = naoIdent===null ? `<td class="nf">—</td>` : `<td class="num">${fmt(naoIdent)}</td>`;
       tACS += `<tr><td class="cat">${acsName}</td><td class="num">${ident!==null?fmt(ident):'—'}</td>${niCell}</tr>`;
     }
-    // Total row
     tACS += `<tr class="stot"><td class="cat">TOTAL</td><td class="num tot">${fmt(totalIdent)}</td><td class="num tot">${fmt(totalNaoIdent)}</td></tr>`;
     tACS += '</tbody>';
     const acsTableEl = document.getElementById('tACS');
@@ -814,9 +779,6 @@ function processar(){
   document.getElementById('btnPDF').style.display='inline-flex';
 }
 
-// ══════════════════════════════════════════════════════
-// HELPER: sum SIGTAP codes starting with prefix, col colIdx
-// ══════════════════════════════════════════════════════
 function sumSIGTAPByPrefix(rows, prefix, colIdx){
   if(!rows||!rows.length) return null;
   let total=0, found=false;
